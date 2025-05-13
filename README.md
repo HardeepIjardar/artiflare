@@ -133,7 +133,7 @@ src/
 
 ## 🔄 Deployment
 
-The application is deployed using [Vercel] and can be accessed at [link].
+The application is deployed using [Vercel](https://vercel.com/) and can be accessed at [link](https://artiflare.hardeepijardar.com/).
 
 ## 📝 Contributing
 
@@ -151,10 +151,10 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 👥 Contributors
 
-- [HardeepIjardar] ([@HardeepIjardar](https://github.com/HardeepIjardar))
+- [HardeepIjardar](https://github.com/HardeepIjardar)
 
 ## 📧 Contact
 
-For questions or support, please contact [hardeepijardar@gmail.com] or open an issue on GitHub.
+For questions or support, please contact [hardeepijardar@gmail.com](mailto:hardeepijardar@gmail.com) or open an issue on GitHub.
 
 ---
