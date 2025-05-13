@@ -29,7 +29,7 @@ const AdminSettings: React.FC = () => {
                 name="site-name"
                 id="site-name"
                 className="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-gray-300 rounded-md"
-                defaultValue="Artisan Gift Express"
+                defaultValue="ArtiFlare"
               />
             </div>
           </div>
@@ -59,7 +59,7 @@ const AdminSettings: React.FC = () => {
                 name="description"
                 rows={3}
                 className="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-gray-300 rounded-md"
-                defaultValue="Artisan Gift Express is a platform that connects talented artisans with customers who appreciate handcrafted quality goods."
+                defaultValue="ArtiFlare is a platform that connects talented artisans with customers who appreciate handcrafted quality goods."
               />
             </div>
           </div>

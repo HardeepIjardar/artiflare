@@ -12,7 +12,7 @@ const AdminLayout: React.FC = () => {
                 {/* Logo would go here */}
               </div>
               <Link to="/" className="text-lg font-bold text-primary">
-                Artisan Gift Express
+                ArtiFlare
               </Link>
               <span className="ml-2 bg-dark-900 text-white text-xs px-2 py-1 rounded">Admin</span>
             </div>

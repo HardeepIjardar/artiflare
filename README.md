@@ -1,14 +1,14 @@
-# Artisan Gift Express
+# ArtiFlare
 
 A modern e-commerce platform connecting artisans with customers seeking handcrafted, personalized gifts. Built with React, TypeScript, and Firebase.
 
 <p align="center">
-  <img src="src/assets/images/logo.png" alt="Artisan Gift Express" width="300">
+  <img src="src/assets/images/logo.png" alt="ArtiFlare" width="300">
 </p>
 
 ## ✨ Overview
 
-Artisan Gift Express is a comprehensive e-commerce solution that enables artisans to showcase and sell their handcrafted products while providing customers with a seamless shopping experience for unique, personalized gifts. The platform features occasion-based browsing, SOS delivery for last-minute shoppers, and real-time order tracking.
+ArtiFlare is a comprehensive e-commerce solution that enables artisans to showcase and sell their handcrafted products while providing customers with a seamless shopping experience for unique, personalized gifts. The platform features occasion-based browsing, SOS delivery for last-minute shoppers, and real-time order tracking.
 
 ## 🌟 Key Features
 
@@ -55,8 +55,8 @@ Custom branded color palette:
 
 1. Clone the repository
    ```bash
-   git clone https://github.com/[YOUR-USERNAME]/artisan-gift-express.git
-   cd artisan-gift-express
+   git clone https://github.com/HardeepIjardar/artiflare.git
+   cd artiflare
    ```
 
 2. Install dependencies
@@ -133,7 +133,7 @@ src/
 
 ## 🔄 Deployment
 
-The application is deployed using [Vercel] and can be accessed at [PRODUCTION_URL].
+The application is deployed using [Vercel] and can be accessed at [link].
 
 ## 📝 Contributing
 
@@ -147,11 +147,11 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📜 License
 
-This project is licensed under the [LICENSE_TYPE] License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## 👥 Contributors
 
-- [HardeepIjardar] ([@YOUR_GITHUB_USERNAME](https://github.com/HardeepIjardar]))
+- [HardeepIjardar] ([@HardeepIjardar](https://github.com/HardeepIjardar))
 
 ## 📧 Contact
 

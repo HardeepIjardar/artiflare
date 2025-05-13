@@ -12,7 +12,7 @@ const ArtisanLayout: React.FC = () => {
                 {/* Logo would go here */}
               </div>
               <Link to="/" className="text-lg font-bold text-primary">
-                Artisan Gift Express
+                ArtiFlare
               </Link>
             </div>
             <div>
@@ -59,7 +59,7 @@ const ArtisanLayout: React.FC = () => {
       <footer className="bg-dark-900 py-4">
         <div className="max-w-7xl mx-auto px-4 overflow-hidden">
           <p className="text-center text-sm text-white">
-            &copy; {new Date().getFullYear()} Artisan Gift Express. All rights reserved.
+            &copy; {new Date().getFullYear()} ArtiFlare. All rights reserved.
           </p>
         </div>
       </footer>
