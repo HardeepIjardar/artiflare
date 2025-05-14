@@ -124,15 +124,17 @@ const UserProfileSetup: React.FC<UserProfileSetupProps> = ({ userType }) => {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="md:col-span-2 mb-2">
+            <p className="text-sm text-gray-500">Address information is optional and can be added later in your profile settings.</p>
+          </div>
           <div>
             <label htmlFor="street" className="block text-sm font-medium text-gray-700 mb-1">
-              Street Address
+              Street Address (Optional)
             </label>
             <input
               id="street"
               name="street"
               type="text"
-              required
               value={form.street}
               onChange={handleChange}
               className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary"
@@ -141,13 +143,12 @@ const UserProfileSetup: React.FC<UserProfileSetupProps> = ({ userType }) => {
           
           <div>
             <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
-              City
+              City (Optional)
             </label>
             <input
               id="city"
               name="city"
               type="text"
-              required
               value={form.city}
               onChange={handleChange}
               className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary"
@@ -156,13 +157,12 @@ const UserProfileSetup: React.FC<UserProfileSetupProps> = ({ userType }) => {
           
           <div>
             <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-1">
-              State/Province
+              State/Province (Optional)
             </label>
             <input
               id="state"
               name="state"
               type="text"
-              required
               value={form.state}
               onChange={handleChange}
               className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary"
@@ -171,13 +171,12 @@ const UserProfileSetup: React.FC<UserProfileSetupProps> = ({ userType }) => {
           
           <div>
             <label htmlFor="zipCode" className="block text-sm font-medium text-gray-700 mb-1">
-              ZIP/Postal Code
+              ZIP/Postal Code (Optional)
             </label>
             <input
               id="zipCode"
               name="zipCode"
               type="text"
-              required
               value={form.zipCode}
               onChange={handleChange}
               className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary"
@@ -186,13 +185,12 @@ const UserProfileSetup: React.FC<UserProfileSetupProps> = ({ userType }) => {
           
           <div>
             <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-1">
-              Country
+              Country (Optional)
             </label>
             <input
               id="country"
               name="country"
               type="text"
-              required
               value={form.country}
               onChange={handleChange}
               className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary"

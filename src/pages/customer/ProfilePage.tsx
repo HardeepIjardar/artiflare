@@ -1,7 +1,86 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { getUserData } from '../../services/firestore';
 
 const ProfilePage: React.FC = () => {
+  const { currentUser, logout } = useAuth();
+  const navigate = useNavigate();
+  const [userData, setUserData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!currentUser) return;
+      
+      try {
+        setIsLoading(true);
+        const data = await getUserData(currentUser.uid);
+        if (data && !data.error) {
+          setUserData(data);
+        } else if (data?.error) {
+          setError(data.error);
+        }
+      } catch (err: any) {
+        setError(err.message || 'Failed to load user data');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, [currentUser]);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error: any) {
+      setError(error.message || 'Failed to log out');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex justify-center items-center h-40">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md">
+          <p className="text-red-700">Error: {error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="mt-2 text-primary hover:text-primary-700"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Get initials for the avatar
+  const getInitials = () => {
+    if (!userData || !userData.displayName) return '';
+    const names = userData.displayName.split(' ');
+    return names.map((name: string) => name.charAt(0).toUpperCase()).join('');
+  };
+
+  // Format creation date
+  const formatDate = (timestamp: any) => {
+    if (!timestamp) return 'N/A';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <h1 className="text-3xl font-bold text-dark mb-6">Your Profile</h1>
@@ -11,14 +90,16 @@ const ProfilePage: React.FC = () => {
           <div className="md:w-1/3 p-6 bg-gray-50 border-b md:border-b-0 md:border-r border-gray-200">
             <div className="flex flex-col items-center">
               <div className="h-24 w-24 rounded-full bg-primary-100 flex items-center justify-center text-primary text-2xl font-bold">
-                JD
+                {getInitials()}
               </div>
-              <h2 className="mt-4 text-xl font-bold text-dark">John Doe</h2>
-              <p className="text-dark-500">john.doe@example.com</p>
-              <p className="text-dark-500 mt-1">Member since May 2023</p>
-              <button className="mt-4 bg-white text-primary border border-primary px-4 py-2 rounded-md hover:bg-primary-50">
+              <h2 className="mt-4 text-xl font-bold text-dark">{userData?.displayName || 'User'}</h2>
+              <p className="text-dark-500">{userData?.email || ''}</p>
+              <p className="text-dark-500 mt-1">
+                Member since {userData?.createdAt ? formatDate(userData.createdAt) : 'N/A'}
+              </p>
+              <Link to="/profile/edit" className="mt-4 bg-white text-primary border border-primary px-4 py-2 rounded-md hover:bg-primary-50">
                 Edit Profile
-              </button>
+              </Link>
             </div>
           </div>
           
@@ -27,23 +108,32 @@ const ProfilePage: React.FC = () => {
             <div className="space-y-4">
               <div>
                 <h3 className="text-sm font-medium text-dark-500">Full Name</h3>
-                <p className="text-dark">John Doe</p>
+                <p className="text-dark">{userData?.displayName || 'Not provided'}</p>
               </div>
               <div>
                 <h3 className="text-sm font-medium text-dark-500">Email Address</h3>
-                <p className="text-dark">john.doe@example.com</p>
+                <p className="text-dark">{userData?.email || 'Not provided'}</p>
               </div>
               <div>
                 <h3 className="text-sm font-medium text-dark-500">Phone Number</h3>
-                <p className="text-dark">(555) 123-4567</p>
+                <p className="text-dark">{userData?.phoneNumber || 'Not provided'}</p>
               </div>
               <div>
                 <h3 className="text-sm font-medium text-dark-500">Default Shipping Address</h3>
-                <p className="text-dark">123 Main Street, Apt 4B</p>
-                <p className="text-dark">New York, NY 10001</p>
-                <p className="text-dark-500">United States</p>
-                <Link to="/profile/addresses" className="text-primary text-sm hover:text-primary-700 mt-1 inline-block">
-                  Manage Addresses
+                {userData?.address && (userData.address.street || userData.address.city) ? (
+                  <>
+                    <p className="text-dark">{userData.address.street || ''}</p>
+                    <p className="text-dark">
+                      {userData.address.city ? `${userData.address.city}, ` : ''}
+                      {userData.address.state || ''} {userData.address.zipCode || ''}
+                    </p>
+                    <p className="text-dark-500">{userData.address.country || ''}</p>
+                  </>
+                ) : (
+                  <p className="text-dark-500 italic">No address provided</p>
+                )}
+                <Link to="/profile/edit" className="text-primary text-sm hover:text-primary-700 mt-1 inline-block">
+                  {userData?.address && (userData.address.street || userData.address.city) ? 'Update Address' : 'Add Address'}
                 </Link>
               </div>
             </div>
@@ -82,34 +172,10 @@ const ProfilePage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
+                {/* Order data will be fetched and displayed here in a future update */}
                 <tr>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm text-dark">#12345</td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm text-dark">May 12, 2023</td>
-                  <td className="px-4 py-4 whitespace-nowrap">
-                    <span className="px-2 py-1 text-xs rounded-full bg-sage-100 text-sage-800">
-                      Delivered
-                    </span>
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm text-dark">$34.99</td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm">
-                    <Link to="/orders/12345" className="text-primary hover:text-primary-700">
-                      View
-                    </Link>
-                  </td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm text-dark">#12344</td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm text-dark">April 28, 2023</td>
-                  <td className="px-4 py-4 whitespace-nowrap">
-                    <span className="px-2 py-1 text-xs rounded-full bg-primary-100 text-primary-800">
-                      Processing
-                    </span>
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm text-dark">$29.99</td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm">
-                    <Link to="/orders/12344" className="text-primary hover:text-primary-700">
-                      View
-                    </Link>
+                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">
+                    No recent orders found.
                   </td>
                 </tr>
               </tbody>
@@ -134,7 +200,10 @@ const ProfilePage: React.FC = () => {
               </svg>
               Notification Preferences
             </button>
-            <button className="text-primary hover:text-primary-700 flex items-center">
+            <button 
+              onClick={handleLogout}
+              className="text-primary hover:text-primary-700 flex items-center"
+            >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>

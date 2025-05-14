@@ -1,3 +1,4 @@
+import { initializeApp } from 'firebase/app';
 import { 
   collection, 
   doc, 
@@ -155,6 +156,22 @@ export const updateUserProfile = async (uid: string, updates: Partial<User>) => 
     return { success: true, error: null };
   } catch (error: any) {
     return { success: false, error: error.message };
+  }
+};
+
+export const getUserData = async (userId: string) => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (userDoc.exists()) {
+      return userDoc.data();
+    } else {
+      return null;
+    }
+  } catch (error: any) {
+    console.error('Error getting user data:', error);
+    return { error: error.message };
   }
 };
 

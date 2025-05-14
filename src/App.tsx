@@ -18,6 +18,7 @@ import OrdersPage from './pages/customer/OrdersPage';
 import OrderTrackingPage from './pages/customer/OrderTrackingPage';
 import ProfilePage from './pages/customer/ProfilePage';
 import WishlistPage from './pages/customer/WishlistPage';
+import EditProfilePage from './pages/customer/EditProfilePage';
 
 // Auth pages
 import LoginPage from './pages/auth/LoginPage';
@@ -71,6 +72,7 @@ function App() {
               <Route path="orders" element={<OrdersPage />} />
               <Route path="orders/:id/tracking" element={<OrderTrackingPage />} />
               <Route path="profile" element={<ProfilePage />} />
+              <Route path="profile/edit" element={<EditProfilePage />} />
               <Route path="wishlist" element={<WishlistPage />} />
             </Route>
           </Route>
