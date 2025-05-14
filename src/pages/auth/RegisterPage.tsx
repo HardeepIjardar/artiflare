@@ -1,10 +1,16 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { createUser } from '../../services/firestore';
+import UserProfileSetup from '../../components/auth/UserProfileSetup';
 
 type UserType = 'buyer' | 'artisan';
 
 const RegisterPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { register, googleLogin } = useAuth();
   const [userType, setUserType] = useState<UserType>('buyer');
+  const [registrationComplete, setRegistrationComplete] = useState(false);
   
   const [form, setForm] = useState({
     name: '',
@@ -79,18 +85,62 @@ const RegisterPage: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (validateForm()) {
       setIsLoading(true);
-      // TODO: Implement actual registration logic
-      setTimeout(() => {
+      
+      try {
+        // Register user with Firebase Auth
+        const result = await register(form.email, form.password, form.name);
+        
+        if (result.error) {
+          setErrors({ form: result.error });
+          setIsLoading(false);
+        } else {
+          // If registration successful, show the profile setup component
+          setRegistrationComplete(true);
+          
+          // Reset form fields
+          setForm({
+            name: '',
+            email: '',
+            password: '',
+            confirmPassword: '',
+            companyName: '',
+            phoneNumber: ''
+          });
+        }
+      } catch (error: any) {
+        setErrors({ form: error.message || 'Registration failed' });
         setIsLoading(false);
-        // Navigate to success page or login
-      }, 1000);
+      }
     }
   };
+
+  const handleGoogleSignup = async () => {
+    setIsLoading(true);
+    
+    try {
+      const result = await googleLogin();
+      
+      if (result.error) {
+        setErrors({ form: result.error });
+      } else {
+        // For Google sign-in, we'll still need to set their role
+        setRegistrationComplete(true);
+      }
+    } catch (error: any) {
+      setErrors({ form: error.message || 'Google sign-up failed' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  if (registrationComplete) {
+    return <UserProfileSetup userType={userType === 'buyer' ? 'customer' : 'artisan'} />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row animate-fadeIn">
@@ -121,6 +171,13 @@ const RegisterPage: React.FC = () => {
               Sign up to begin your handcrafted journey
             </p>
           </div>
+          
+          {/* General form error */}
+          {errors.form && (
+            <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md animate-fadeIn">
+              <p className="text-red-700 text-sm">{errors.form}</p>
+            </div>
+          )}
           
           {/* User Type Selection */}
           <div className="animate-fadeIn" style={{ animationDelay: '0.1s' }}>
@@ -260,7 +317,7 @@ const RegisterPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] hover:shadow-lg disabled:opacity-70 active:translate-y-[1px]"
+                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-primary hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] hover:shadow-lg disabled:opacity-70 active:translate-y-[1px]"
               >
                 {isLoading ? (
                   <span className="flex items-center">
@@ -268,15 +325,15 @@ const RegisterPage: React.FC = () => {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Creating account...
+                    Creating Account...
                   </span>
                 ) : (
-                  `Create ${userType === 'artisan' ? 'Artisan' : 'Buyer'} Account`
+                  "Create Account"
                 )}
               </button>
             </div>
           </form>
-          
+
           <div className="mt-6 animate-fadeIn" style={{ animationDelay: userType === 'artisan' ? '0.7s' : '0.6s' }}>
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
@@ -288,13 +345,18 @@ const RegisterPage: React.FC = () => {
             </div>
 
             <div className="mt-6 grid grid-cols-2 gap-3">
-              <button type="button" className="flex items-center justify-center w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] hover:shadow-md active:translate-y-[1px]">
+              <button 
+                type="button" 
+                onClick={handleGoogleSignup}
+                disabled={isLoading}
+                className="flex items-center justify-center w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] hover:shadow-md active:translate-y-[1px] disabled:opacity-70"
+              >
                 <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032 s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2 C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/>
                 </svg>
                 Google
               </button>
-              <button type="button" className="flex items-center justify-center w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] hover:shadow-md active:translate-y-[1px]">
+              <button className="flex items-center justify-center w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] hover:shadow-md active:translate-y-[1px]">
                 <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M20 10c0-5.523-4.477-10-10-10S0 4.477 0 10c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V10h2.54V7.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V10h2.773l-.443 2.89h-2.33v6.988C16.343 19.128 20 14.991 20 10z" />
                 </svg>
@@ -303,18 +365,7 @@ const RegisterPage: React.FC = () => {
             </div>
           </div>
           
-          <p className="text-center text-xs text-gray-500 animate-fadeIn" style={{ animationDelay: userType === 'artisan' ? '0.8s' : '0.7s' }}>
-            By signing up, you agree to our{' '}
-            <a href="#" className="text-primary hover:text-primary-700 transition-colors duration-300 hover:underline">
-              Terms of Service
-            </a>{' '}
-            and{' '}
-            <a href="#" className="text-primary hover:text-primary-700 transition-colors duration-300 hover:underline">
-              Privacy Policy
-            </a>
-          </p>
-          
-          <p className="text-center text-sm text-gray-600 animate-fadeIn" style={{ animationDelay: userType === 'artisan' ? '0.9s' : '0.8s' }}>
+          <p className="mt-6 text-center text-sm text-gray-600 animate-fadeIn" style={{ animationDelay: userType === 'artisan' ? '0.75s' : '0.65s' }}>
             Already have an account?{' '}
             <Link to="/login" className="font-medium text-primary hover:text-primary-700 transition-colors duration-300 hover:underline">
               Sign in
@@ -353,15 +404,6 @@ const styles = `
 
 .animate-slideLeft {
   animation: slideLeft 0.5s ease-in-out forwards;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
-}
-
-.animate-pulse {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 `;
 

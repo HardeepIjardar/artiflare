@@ -1,0 +1,81 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    function hasRole(role) {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    }
+    
+    function isAdmin() {
+      return hasRole('admin');
+    }
+    
+    function isArtisan() {
+      return hasRole('artisan');
+    }
+    
+    // User profiles
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // Products
+    match /products/{productId} {
+      // Anyone can read products
+      allow read: if true;
+      
+      // Only artisans and admins can create products
+      allow create: if isArtisan() || isAdmin();
+      
+      // Artisans can only update/delete their own products, admins can update/delete any
+      allow update, delete: if isAdmin() || 
+        (isArtisan() && resource.data.artisanId == request.auth.uid);
+    }
+    
+    // Orders
+    match /orders/{orderId} {
+      // Users can read their own orders, artisans can read orders containing their products, admins can read all
+      allow read: if isAdmin() || 
+        isOwner(resource.data.userId) || 
+        (isArtisan() && resource.data.items.artisanId.hasAny([request.auth.uid]));
+      
+      // Any authenticated user can create an order (for themselves)
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      
+      // Only admins can update order status
+      allow update: if isAdmin();
+      
+      // Only admins can delete orders
+      allow delete: if isAdmin();
+    }
+    
+    // Reviews
+    match /reviews/{reviewId} {
+      // Anyone can read reviews
+      allow read: if true;
+      
+      // Authenticated users can create reviews, but only for products they've purchased
+      allow create: if isSignedIn() && 
+        request.resource.data.userId == request.auth.uid;
+      
+      // Users can only edit their own reviews, admins can edit any
+      allow update: if isAdmin() || 
+        (isSignedIn() && resource.data.userId == request.auth.uid);
+      
+      // Only admins or the review author can delete
+      allow delete: if isAdmin() || 
+        (isSignedIn() && resource.data.userId == request.auth.uid);
+    }
+  }
+} 

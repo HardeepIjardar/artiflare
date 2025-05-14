@@ -1,5 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
 
 // Layout components
 import MainLayout from './layouts/MainLayout';
@@ -43,48 +45,60 @@ import HowItWorksPage from './pages/customer/HowItWorksPage';
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        {/* Customer Routes */}
-        <Route path="/" element={<MainLayout />}>
-          <Route index element={<HomePage />} />
-          <Route path="products" element={<ProductsPage />} />
-          <Route path="products/:id" element={<ProductDetailPage />} />
-          <Route path="occasions" element={<OccasionsPage />} />
-          <Route path="occasions/:occasion" element={<OccasionDetailPage />} />
-          <Route path="how-it-works" element={<HowItWorksPage />} />
-          <Route path="cart" element={<CartPage />} />
-          <Route path="checkout" element={<CheckoutPage />} />
-          <Route path="orders" element={<OrdersPage />} />
-          <Route path="orders/:id/tracking" element={<OrderTrackingPage />} />
-          <Route path="profile" element={<ProfilePage />} />
-          <Route path="wishlist" element={<WishlistPage />} />
-        </Route>
+    <AuthProvider>
+      <Router>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<MainLayout />}>
+            <Route index element={<HomePage />} />
+            <Route path="products" element={<ProductsPage />} />
+            <Route path="products/:id" element={<ProductDetailPage />} />
+            <Route path="occasions" element={<OccasionsPage />} />
+            <Route path="occasions/:occasion" element={<OccasionDetailPage />} />
+            <Route path="how-it-works" element={<HowItWorksPage />} />
+          </Route>
 
-        {/* Auth Routes */}
-        <Route path="login" element={<LoginPage />} />
-        <Route path="register" element={<RegisterPage />} />
-        <Route path="forgot-password" element={<ForgotPasswordPage />} />
+          {/* Auth Routes */}
+          <Route path="login" element={<LoginPage />} />
+          <Route path="register" element={<RegisterPage />} />
+          <Route path="forgot-password" element={<ForgotPasswordPage />} />
 
-        {/* Artisan Routes */}
-        <Route path="/artisan" element={<ArtisanLayout />}>
-          <Route index element={<ArtisanDashboard />} />
-          <Route path="products" element={<ArtisanProducts />} />
-          <Route path="orders" element={<ArtisanOrders />} />
-          <Route path="earnings" element={<ArtisanEarnings />} />
-          <Route path="settings" element={<ArtisanSettings />} />
-        </Route>
+          {/* Protected Customer Routes */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/" element={<MainLayout />}>
+              <Route path="cart" element={<CartPage />} />
+              <Route path="checkout" element={<CheckoutPage />} />
+              <Route path="orders" element={<OrdersPage />} />
+              <Route path="orders/:id/tracking" element={<OrderTrackingPage />} />
+              <Route path="profile" element={<ProfilePage />} />
+              <Route path="wishlist" element={<WishlistPage />} />
+            </Route>
+          </Route>
 
-        {/* Admin Routes */}
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<AdminDashboard />} />
-          <Route path="products" element={<AdminProducts />} />
-          <Route path="orders" element={<AdminOrders />} />
-          <Route path="users" element={<AdminUsers />} />
-          <Route path="settings" element={<AdminSettings />} />
-        </Route>
-      </Routes>
-    </Router>
+          {/* Artisan Routes - Protected with role */}
+          <Route element={<ProtectedRoute allowedRoles={['artisan']} />}>
+            <Route path="/artisan" element={<ArtisanLayout />}>
+              <Route index element={<ArtisanDashboard />} />
+              <Route path="products" element={<ArtisanProducts />} />
+              <Route path="orders" element={<ArtisanOrders />} />
+              <Route path="earnings" element={<ArtisanEarnings />} />
+              <Route path="settings" element={<ArtisanSettings />} />
+            </Route>
+          </Route>
+
+          {/* Admin Routes - Protected with role */}
+          <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<AdminDashboard />} />
+              <Route path="products" element={<AdminProducts />} />
+              <Route path="orders" element={<AdminOrders />} />
+              <Route path="users" element={<AdminUsers />} />
+              <Route path="settings" element={<AdminSettings />} />
+            </Route>
+          </Route>
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 }
 
