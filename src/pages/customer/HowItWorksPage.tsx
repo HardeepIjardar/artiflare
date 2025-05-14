@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 const HowItWorksPage: React.FC = () => {
   return (
@@ -61,9 +62,9 @@ const HowItWorksPage: React.FC = () => {
         </div>
         
         <div className="mt-16 text-center">
-          <button className="bg-primary text-white px-8 py-3 rounded-md font-medium text-lg">
+          <Link to="/" className="bg-primary text-white px-8 py-3 rounded-md font-medium text-lg inline-block">
             Start Shopping
-          </button>
+          </Link>
         </div>
       </div>
     </div>
