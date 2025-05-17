@@ -5,12 +5,13 @@ import { getProductById, Product } from '../../data/products';
 
 const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { addToCart } = useCart();
+  const { addToCart, updateQuantity: updateCartQuantity, cartItems, removeFromCart } = useCart();
   const [quantity, setQuantity] = useState(1);
   const [customization, setCustomization] = useState('');
   const [addedToCart, setAddedToCart] = useState(false);
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showQuantitySelector, setShowQuantitySelector] = useState(false);
   
   useEffect(() => {
     if (id) {
@@ -19,6 +20,17 @@ const ProductDetailPage: React.FC = () => {
     }
     setLoading(false);
   }, [id]);
+  
+  useEffect(() => {
+    if (id && cartItems.length > 0) {
+      const cartItem = cartItems.find(item => item.id === id);
+      if (cartItem) {
+        setAddedToCart(true);
+        setShowQuantitySelector(true);
+        setQuantity(cartItem.quantity);
+      }
+    }
+  }, [id, cartItems]);
 
   const handleAddToCart = () => {
     if (!product) return;
@@ -35,11 +47,44 @@ const ProductDetailPage: React.FC = () => {
 
     // Show feedback
     setAddedToCart(true);
+    setShowQuantitySelector(true);
     
-    // Reset after 3 seconds
+    // Reset feedback after 3 seconds, but keep quantity selector visible
     setTimeout(() => {
       setAddedToCart(false);
     }, 3000);
+  };
+  
+  const incrementQuantity = () => {
+    if (!product || !showQuantitySelector) return;
+    
+    const newQuantity = quantity + 1;
+    setQuantity(newQuantity);
+    
+    // Update the cart directly if item is already in cart
+    if (cartItems.some(item => item.id === product.id)) {
+      updateCartQuantity(product.id, newQuantity);
+    }
+  };
+  
+  const decrementQuantity = () => {
+    if (!product || !showQuantitySelector) return;
+    
+    if (quantity <= 1) {
+      // Remove item from cart when quantity would be 0
+      removeFromCart(product.id);
+      // Hide the quantity selector and reset to initial state
+      setShowQuantitySelector(false);
+      setAddedToCart(false);
+      setQuantity(1);
+    } else {
+      // Normal decrement
+      const newQuantity = quantity - 1;
+      setQuantity(newQuantity);
+      
+      // Update the cart directly
+      updateCartQuantity(product.id, newQuantity);
+    }
   };
 
   if (loading) {
@@ -115,28 +160,56 @@ const ProductDetailPage: React.FC = () => {
               </div>
             </div>
             <div className="mt-6 flex space-x-4">
-              <div className="w-24">
-                <label className="block text-sm font-medium text-dark-600">Quantity</label>
-                <select 
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                  value={quantity}
-                  onChange={(e) => setQuantity(parseInt(e.target.value))}
-                >
-                  {[1, 2, 3, 4, 5].map((num) => (
-                    <option key={num} value={num}>{num}</option>
-                  ))}
-                </select>
-              </div>
-              <button 
-                className={`${
-                  addedToCart 
-                    ? 'bg-green-600 hover:bg-green-700' 
-                    : 'bg-primary hover:bg-primary-700'
-                } text-white font-bold py-2 px-6 rounded transition-colors duration-300 flex-grow`}
-                onClick={handleAddToCart}
-              >
-                {addedToCart ? 'Added to Cart ✓' : 'Add to Cart'}
-              </button>
+              {showQuantitySelector ? (
+                <div className="flex items-center space-x-2 w-full">
+                  <button 
+                    className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100"
+                    onClick={decrementQuantity}
+                  >
+                    <span>-</span>
+                  </button>
+                  <span className="text-dark text-lg mx-2">{quantity}</span>
+                  <button 
+                    className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100"
+                    onClick={incrementQuantity}
+                  >
+                    <span>+</span>
+                  </button>
+                  {addedToCart && (
+                    <span className="ml-4 text-green-600 flex items-center">
+                      <svg className="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      Added to cart
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div className="w-24">
+                    <label className="block text-sm font-medium text-dark-600">Quantity</label>
+                    <select 
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                      value={quantity}
+                      onChange={(e) => setQuantity(parseInt(e.target.value))}
+                    >
+                      {[1, 2, 3, 4, 5].map((num) => (
+                        <option key={num} value={num}>{num}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <button 
+                    className={`${
+                      addedToCart 
+                        ? 'bg-green-600 hover:bg-green-700' 
+                        : 'bg-primary hover:bg-primary-700'
+                    } text-white font-bold py-2 px-6 rounded transition-colors duration-300 flex-grow`}
+                    onClick={handleAddToCart}
+                  >
+                    {addedToCart ? 'Added to Cart ✓' : 'Add to Cart'}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

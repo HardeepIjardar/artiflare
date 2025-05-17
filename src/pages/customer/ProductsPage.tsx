@@ -1,12 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { PRODUCTS } from '../../data/products';
 import { useCart } from '../../contexts/CartContext';
 
 const ProductsPage: React.FC = () => {
-  const { addToCart, updateQuantity: updateCartQuantity, cartItems } = useCart();
+  const { addToCart, updateQuantity: updateCartQuantity, cartItems, removeFromCart } = useCart();
   const [showQuantitySelector, setShowQuantitySelector] = useState<Record<string, boolean>>({});
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  
+  // Initialize quantity selectors for items already in cart
+  useEffect(() => {
+    const initialQuantitySelectors: Record<string, boolean> = {};
+    const initialQuantities: Record<string, number> = {};
+    
+    cartItems.forEach(item => {
+      initialQuantitySelectors[item.id] = true;
+      initialQuantities[item.id] = item.quantity;
+    });
+    
+    setShowQuantitySelector(initialQuantitySelectors);
+    setQuantities(initialQuantities);
+  }, [cartItems]);
   
   const handleAddToCartClick = (productId: string) => {
     const product = PRODUCTS.find(p => p.id === productId);
@@ -22,7 +36,7 @@ const ProductsPage: React.FC = () => {
       image: product.image
     });
     
-    // Show quantity selector for adjusting
+    // Show quantity selector for adding more
     setShowQuantitySelector(prev => ({ ...prev, [productId]: true }));
     // Initialize quantity to 1
     setQuantities(prev => ({ ...prev, [productId]: 1 }));
@@ -37,11 +51,25 @@ const ProductsPage: React.FC = () => {
   };
 
   const decrementQuantity = (productId: string) => {
-    const newQuantity = Math.max(1, (quantities[productId] || 1) - 1);
-    setQuantities(prev => ({ ...prev, [productId]: newQuantity }));
+    const currentQuantity = quantities[productId] || 1;
     
-    // Directly update cart quantity
-    updateCartQuantity(productId, newQuantity);
+    if (currentQuantity <= 1) {
+      // Remove item from cart when quantity would be 0
+      removeFromCart(productId);
+      // Hide the quantity selector
+      setShowQuantitySelector(prev => ({ ...prev, [productId]: false }));
+      // Reset quantity
+      setQuantities(prev => {
+        const newQuantities = { ...prev };
+        delete newQuantities[productId];
+        return newQuantities;
+      });
+    } else {
+      // Normal decrement
+      const newQuantity = currentQuantity - 1;
+      setQuantities(prev => ({ ...prev, [productId]: newQuantity }));
+      updateCartQuantity(productId, newQuantity);
+    }
   };
 
   return (
