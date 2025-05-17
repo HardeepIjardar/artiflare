@@ -15,7 +15,7 @@ const HeroSection = () => (
           </p>
           
           {/* Search Bar */}
-          <div className="max-w-md mx-auto">
+          <div className="max-w-md mx-auto hero-search-bar">
             <div className="relative">
               <input 
                 type="text" 
