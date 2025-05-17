@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { FaBirthdayCake, FaWineGlassAlt, FaHeart, FaSeedling } from 'react-icons/fa';
 
 // Hero Section with Search bar
 const HeroSection = () => (
@@ -39,13 +40,14 @@ const HeroSection = () => (
 interface OccasionCardProps {
   title: string;
   link: string;
+  icon: React.ReactNode;
 }
 
-const OccasionCard: React.FC<OccasionCardProps> = ({ title, link }) => (
+const OccasionCard: React.FC<OccasionCardProps> = ({ title, link, icon }) => (
   <Link to={link} className="bg-white border border-[#e0e0e0] rounded-lg overflow-hidden transition-transform hover:transform hover:scale-105">
     <div className="p-6 text-center">
-      <div className="w-16 h-16 bg-sand-300 rounded-full mx-auto mb-4 flex items-center justify-center">
-        {/* Icon would go here */}
+      <div className="w-16 h-16 bg-sand-300 rounded-full mx-auto mb-4 flex items-center justify-center text-primary">
+        {icon}
       </div>
       <h3 className="font-bold text-dark">{title}</h3>
     </div>
@@ -58,10 +60,26 @@ const OccasionsSection = () => (
     <div className="max-w-7xl mx-auto">
       <h2 className="text-xl sm:text-2xl font-bold text-dark mb-6">Browse by Occasion</h2>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <OccasionCard title="Birthday" link="/occasions/birthday" />
-        <OccasionCard title="Anniversary" link="/occasions/anniversary" />
-        <OccasionCard title="Date Night" link="/occasions/date-night" />
-        <OccasionCard title="Just Because" link="/occasions/just-because" />
+        <OccasionCard 
+          title="Birthday" 
+          link="/occasions/birthday" 
+          icon={<FaBirthdayCake size={32} />} 
+        />
+        <OccasionCard 
+          title="Anniversary" 
+          link="/occasions/anniversary" 
+          icon={<FaHeart size={32} />} 
+        />
+        <OccasionCard 
+          title="Date Night" 
+          link="/occasions/date-night" 
+          icon={<FaWineGlassAlt size={32} />} 
+        />
+        <OccasionCard 
+          title="Just Because" 
+          link="/occasions/just-because" 
+          icon={<FaSeedling size={32} />} 
+        />
       </div>
     </div>
   </div>

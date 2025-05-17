@@ -1,27 +1,90 @@
-import React from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { useCart } from '../../contexts/CartContext';
+import { getProductById, Product } from '../../data/products';
 
 const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const { addToCart } = useCart();
+  const [quantity, setQuantity] = useState(1);
+  const [customization, setCustomization] = useState('');
+  const [addedToCart, setAddedToCart] = useState(false);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
   
+  useEffect(() => {
+    if (id) {
+      const foundProduct = getProductById(id);
+      setProduct(foundProduct || null);
+    }
+    setLoading(false);
+  }, [id]);
+
+  const handleAddToCart = () => {
+    if (!product) return;
+    
+    addToCart({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      quantity: quantity,
+      artisan: product.artisan,
+      customization: customization || undefined,
+      image: product.image
+    });
+
+    // Show feedback
+    setAddedToCart(true);
+    
+    // Reset after 3 seconds
+    setTimeout(() => {
+      setAddedToCart(false);
+    }, 3000);
+  };
+
+  if (loading) {
+    return <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">Loading...</div>;
+  }
+
+  if (!product) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white shadow rounded-lg p-8 text-center">
+          <h2 className="text-xl font-medium text-dark mb-2">Product not found</h2>
+          <p className="text-gray-500 mb-6">The product you're looking for doesn't exist or has been removed.</p>
+          <Link 
+            to="/products" 
+            className="inline-block bg-primary hover:bg-primary-700 text-white font-bold py-2 px-6 rounded"
+          >
+            Browse Products
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="bg-white shadow rounded-lg overflow-hidden">
         <div className="md:flex">
           <div className="md:w-1/2">
             <div className="h-64 md:h-full bg-sage-100 flex items-center justify-center">
-              <p className="text-dark-400">Product Image</p>
+              <img 
+                src={product.image} 
+                alt={product.name} 
+                className="w-full h-full object-cover"
+              />
             </div>
           </div>
           <div className="md:w-1/2 p-6">
-            <h1 className="text-2xl font-bold text-dark">Handcrafted Wooden Planter</h1>
-            <p className="text-dark-500 text-sm mt-1">by Emma's Crafts</p>
+            <h1 className="text-2xl font-bold text-dark">{product.name}</h1>
+            <p className="text-dark-500 text-sm mt-1">by {product.artisan}</p>
             <div className="flex items-center mt-2">
               <div className="flex">
                 {[...Array(5)].map((_, i) => (
                   <svg 
                     key={i} 
-                    className={`h-5 w-5 ${i < 4 ? 'text-yellow-400' : 'text-gray-300'}`} 
+                    className={`h-5 w-5 ${i < product.rating ? 'text-yellow-400' : 'text-gray-300'}`} 
                     fill="currentColor" 
                     viewBox="0 0 20 20"
                   >
@@ -29,14 +92,13 @@ const ProductDetailPage: React.FC = () => {
                   </svg>
                 ))}
               </div>
-              <span className="ml-2 text-dark-500 text-sm">4.0 (24 reviews)</span>
+              <span className="ml-2 text-dark-500 text-sm">{product.rating}.0 ({product.reviews} reviews)</span>
             </div>
-            <p className="text-primary text-2xl font-bold mt-4">$34.99</p>
+            <p className="text-primary text-2xl font-bold mt-4">${product.price.toFixed(2)}</p>
             <div className="mt-4">
               <h3 className="text-dark font-medium">Description</h3>
               <p className="text-dark-500 mt-2">
-                Beautiful handcrafted wooden planter, perfect for small indoor plants.
-                Made with sustainable materials and finished with non-toxic paint.
+                {product.description}
               </p>
             </div>
             <div className="mt-4">
@@ -47,22 +109,33 @@ const ProductDetailPage: React.FC = () => {
                   type="text" 
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
                   placeholder="Add a personal message"
+                  value={customization}
+                  onChange={(e) => setCustomization(e.target.value)}
                 />
               </div>
             </div>
             <div className="mt-6 flex space-x-4">
               <div className="w-24">
                 <label className="block text-sm font-medium text-dark-600">Quantity</label>
-                <select className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary">
-                  <option>1</option>
-                  <option>2</option>
-                  <option>3</option>
-                  <option>4</option>
-                  <option>5</option>
+                <select 
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                  value={quantity}
+                  onChange={(e) => setQuantity(parseInt(e.target.value))}
+                >
+                  {[1, 2, 3, 4, 5].map((num) => (
+                    <option key={num} value={num}>{num}</option>
+                  ))}
                 </select>
               </div>
-              <button className="bg-primary hover:bg-primary-700 text-white font-bold py-2 px-6 rounded">
-                Add to Cart
+              <button 
+                className={`${
+                  addedToCart 
+                    ? 'bg-green-600 hover:bg-green-700' 
+                    : 'bg-primary hover:bg-primary-700'
+                } text-white font-bold py-2 px-6 rounded transition-colors duration-300 flex-grow`}
+                onClick={handleAddToCart}
+              >
+                {addedToCart ? 'Added to Cart ✓' : 'Add to Cart'}
               </button>
             </div>
           </div>

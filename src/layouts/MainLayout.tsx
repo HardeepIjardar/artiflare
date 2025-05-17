@@ -2,10 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { FaUserCircle, FaShoppingCart } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
+import { useCart } from '../contexts/CartContext';
 import Logo from '../components/Logo';
 
 const MainLayout: React.FC = () => {
   const { currentUser, logout } = useAuth();
+  const { cartCount } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -125,8 +127,13 @@ const MainLayout: React.FC = () => {
             <div className="flex items-center space-x-4">
               {currentUser ? (
                 <>
-                  <Link to="/cart" className="text-dark hover:text-primary">
+                  <Link to="/cart" className="text-dark hover:text-primary relative">
                     <FaShoppingCart className="h-6 w-6" />
+                    {cartCount > 0 && (
+                      <span className="absolute -top-2 -right-2 bg-primary text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
+                        {cartCount > 99 ? '99+' : cartCount}
+                      </span>
+                    )}
                   </Link>
                   <div className="relative" ref={profileMenuRef}>
                     <button 
@@ -174,8 +181,13 @@ const MainLayout: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <Link to="/cart" className="text-dark hover:text-primary mr-2">
+                  <Link to="/cart" className="text-dark hover:text-primary relative mr-2">
                     <FaShoppingCart className="h-6 w-6" />
+                    {cartCount > 0 && (
+                      <span className="absolute -top-2 -right-2 bg-primary text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
+                        {cartCount > 99 ? '99+' : cartCount}
+                      </span>
+                    )}
                   </Link>
                   <Link to="/login" className="border border-primary text-primary px-5 py-2 rounded-md hover:bg-primary hover:text-white transition duration-300">
                     Sign In
