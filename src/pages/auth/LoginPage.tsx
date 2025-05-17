@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import PhoneLogin from '../../components/auth/PhoneLogin';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { login, googleLogin, facebookLogin } = useAuth();
+  const [showPhoneLogin, setShowPhoneLogin] = useState(false);
+  const { login, googleLogin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -54,23 +56,17 @@ const LoginPage: React.FC = () => {
     }
   };
 
-  const handleFacebookLogin = async () => {
+  const handlePhoneLoginSuccess = (user: any) => {
+    navigate(from, { replace: true });
+  };
+
+  const handlePhoneLoginError = (errorMsg: string) => {
+    setError(errorMsg);
+  };
+
+  const togglePhoneLogin = () => {
+    setShowPhoneLogin(!showPhoneLogin);
     setError(null);
-    setIsLoading(true);
-    
-    try {
-      const result = await facebookLogin();
-      
-      if (result.error) {
-        setError(result.error);
-      } else {
-        navigate(from, { replace: true });
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to login with Facebook');
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   return (
@@ -91,79 +87,96 @@ const LoginPage: React.FC = () => {
             </div>
           )}
           
-          <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-            <div className="space-y-4">
-              <div className="transform transition duration-300 ease-in-out hover:translate-y-[-2px]">
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                  Email address
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="appearance-none relative block w-full px-4 py-3 border border-gray-300 rounded-lg placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 ease-in-out focus:shadow-md"
-                  placeholder="name@example.com"
-                />
-              </div>
-              
-              <div className="transform transition duration-300 ease-in-out hover:translate-y-[-2px]">
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                  Password
-                </label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="appearance-none relative block w-full px-4 py-3 border border-gray-300 rounded-lg placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 ease-in-out focus:shadow-md"
-                  placeholder="••••••••"
-                />
-                <div className="flex items-center justify-between mt-2">
-                  <div className="flex items-center">
-                    <input
-                      id="remember-me"
-                      name="remember-me"
-                      type="checkbox"
-                      className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded transition duration-300 ease-in-out"
-                    />
-                    <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
-                      Remember me
-                    </label>
+          {!showPhoneLogin ? (
+            <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+              <div className="space-y-4">
+                <div className="transform transition duration-300 ease-in-out hover:translate-y-[-2px]">
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                    Email address
+                  </label>
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="appearance-none relative block w-full px-4 py-3 border border-gray-300 rounded-lg placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 ease-in-out focus:shadow-md"
+                    placeholder="name@example.com"
+                  />
+                </div>
+                
+                <div className="transform transition duration-300 ease-in-out hover:translate-y-[-2px]">
+                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                    Password
+                  </label>
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    autoComplete="current-password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="appearance-none relative block w-full px-4 py-3 border border-gray-300 rounded-lg placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 ease-in-out focus:shadow-md"
+                    placeholder="••••••••"
+                  />
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="flex items-center">
+                      <input
+                        id="remember-me"
+                        name="remember-me"
+                        type="checkbox"
+                        className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded transition duration-300 ease-in-out"
+                      />
+                      <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
+                        Remember me
+                      </label>
+                    </div>
+                    <Link to="/forgot-password" className="text-sm font-medium text-primary hover:text-primary-700 transition-colors duration-300">
+                      Forgot password?
+                    </Link>
                   </div>
-                  <Link to="/forgot-password" className="text-sm font-medium text-primary hover:text-primary-700 transition-colors duration-300">
-                    Forgot password?
-                  </Link>
                 </div>
               </div>
-            </div>
 
-            <div className="animate-fadeIn">
+              <div className="animate-fadeIn">
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-primary hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] hover:shadow-lg disabled:opacity-70 active:translate-y-[1px]"
+                >
+                  {isLoading ? (
+                    <span className="flex items-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Signing in...
+                    </span>
+                  ) : (
+                    "Sign in"
+                  )}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="mt-8 space-y-6">
+              <PhoneLogin
+                onSuccess={handlePhoneLoginSuccess}
+                onError={handlePhoneLoginError}
+                isLoading={isLoading}
+                setIsLoading={setIsLoading}
+              />
               <button
-                type="submit"
-                disabled={isLoading}
-                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-primary hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] hover:shadow-lg disabled:opacity-70 active:translate-y-[1px]"
+                onClick={togglePhoneLogin}
+                className="w-full text-center text-sm text-primary hover:text-primary-700 transition-colors duration-300"
               >
-                {isLoading ? (
-                  <span className="flex items-center">
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Signing in...
-                  </span>
-                ) : (
-                  "Sign in"
-                )}
+                Sign in with email instead
               </button>
             </div>
-          </form>
+          )}
 
           <div className="mt-6 animate-fadeIn" style={{ animationDelay: '0.2s' }}>
             <div className="relative">
@@ -189,14 +202,14 @@ const LoginPage: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={handleFacebookLogin}
-                disabled={isLoading}
+                onClick={togglePhoneLogin}
+                disabled={isLoading || showPhoneLogin}
                 className="flex items-center justify-center w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] hover:shadow-md active:translate-y-[1px] disabled:opacity-70"
               >
-                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M20 10c0-5.523-4.477-10-10-10S0 4.477 0 10c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V10h2.54V7.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V10h2.773l-.443 2.89h-2.33v6.988C16.343 19.128 20 14.991 20 10z" />
+                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 0 0-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z" />
                 </svg>
-                Facebook
+                Phone Number
               </button>
             </div>
           </div>

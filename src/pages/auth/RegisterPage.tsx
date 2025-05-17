@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { createUser } from '../../services/firestore';
 import UserProfileSetup from '../../components/auth/UserProfileSetup';
+import PhoneLogin from '../../components/auth/PhoneLogin';
 
 type UserType = 'buyer' | 'artisan';
 
@@ -11,6 +12,7 @@ const RegisterPage: React.FC = () => {
   const { register, googleLogin } = useAuth();
   const [userType, setUserType] = useState<UserType>('buyer');
   const [registrationComplete, setRegistrationComplete] = useState(false);
+  const [showPhoneSignup, setShowPhoneSignup] = useState(false);
   
   const [form, setForm] = useState({
     name: '',
@@ -137,6 +139,20 @@ const RegisterPage: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  const handlePhoneSignupSuccess = (user: any) => {
+    // For phone sign-in, we'll still need to set their role
+    setRegistrationComplete(true);
+  };
+
+  const handlePhoneSignupError = (error: string) => {
+    setErrors({ form: error });
+  };
+
+  const togglePhoneSignup = () => {
+    setShowPhoneSignup(!showPhoneSignup);
+    setErrors({});
+  };
   
   if (registrationComplete) {
     return <UserProfileSetup userType={userType === 'buyer' ? 'customer' : 'artisan'} />;
@@ -207,132 +223,149 @@ const RegisterPage: React.FC = () => {
             </div>
           </div>
           
-          <form className="space-y-5" onSubmit={handleSubmit}>
-            <div className="animate-fadeIn" style={{ animationDelay: '0.2s' }}>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                Full Name
-              </label>
-              <input
-                id="name"
-                name="name"
-                type="text"
-                autoComplete="name"
-                value={form.name}
-                onChange={handleChange}
-                className={`appearance-none block w-full px-4 py-3 border ${errors.name ? 'border-red-500' : 'border-gray-300'} rounded-lg placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] focus:shadow-md`}
-                placeholder="John Doe"
+          {!showPhoneSignup ? (
+            <form className="space-y-5" onSubmit={handleSubmit}>
+              <div className="animate-fadeIn" style={{ animationDelay: '0.2s' }}>
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                  Full Name
+                </label>
+                <input
+                  id="name"
+                  name="name"
+                  type="text"
+                  autoComplete="name"
+                  value={form.name}
+                  onChange={handleChange}
+                  className={`appearance-none block w-full px-4 py-3 border ${errors.name ? 'border-red-500' : 'border-gray-300'} rounded-lg placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] focus:shadow-md`}
+                  placeholder="John Doe"
+                />
+                {errors.name && <p className="mt-1 text-sm text-red-600 animate-pulse">{errors.name}</p>}
+              </div>
+              
+              <div className="animate-fadeIn" style={{ animationDelay: '0.3s' }}>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                  Email address
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  value={form.email}
+                  onChange={handleChange}
+                  className={`appearance-none block w-full px-4 py-3 border ${errors.email ? 'border-red-500' : 'border-gray-300'} rounded-lg placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] focus:shadow-md`}
+                  placeholder="name@example.com"
+                />
+                {errors.email && <p className="mt-1 text-sm text-red-600 animate-pulse">{errors.email}</p>}
+              </div>
+              
+              {/* Artisan-specific fields */}
+              {userType === 'artisan' && (
+                <>
+                  <div className="animate-fadeIn" style={{ animationDelay: '0.35s' }}>
+                    <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 mb-1">
+                      Shop/Company Name
+                    </label>
+                    <input
+                      id="companyName"
+                      name="companyName"
+                      type="text"
+                      value={form.companyName}
+                      onChange={handleChange}
+                      className={`appearance-none block w-full px-4 py-3 border ${errors.companyName ? 'border-red-500' : 'border-gray-300'} rounded-lg placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] focus:shadow-md`}
+                      placeholder="Handcrafted Treasures"
+                    />
+                    {errors.companyName && <p className="mt-1 text-sm text-red-600 animate-pulse">{errors.companyName}</p>}
+                  </div>
+                  
+                  <div className="animate-fadeIn" style={{ animationDelay: '0.4s' }}>
+                    <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 mb-1">
+                      Phone Number
+                    </label>
+                    <input
+                      id="phoneNumber"
+                      name="phoneNumber"
+                      type="tel"
+                      value={form.phoneNumber}
+                      onChange={handleChange}
+                      className={`appearance-none block w-full px-4 py-3 border ${errors.phoneNumber ? 'border-red-500' : 'border-gray-300'} rounded-lg placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] focus:shadow-md`}
+                      placeholder="+1 (555) 123-4567"
+                    />
+                    {errors.phoneNumber && <p className="mt-1 text-sm text-red-600 animate-pulse">{errors.phoneNumber}</p>}
+                  </div>
+                </>
+              )}
+              
+              <div className="animate-fadeIn" style={{ animationDelay: userType === 'artisan' ? '0.5s' : '0.4s' }}>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                  Password
+                </label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={form.password}
+                  onChange={handleChange}
+                  className={`appearance-none block w-full px-4 py-3 border ${errors.password ? 'border-red-500' : 'border-gray-300'} rounded-lg placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] focus:shadow-md`}
+                  placeholder="••••••••"
+                />
+                {errors.password && <p className="mt-1 text-sm text-red-600 animate-pulse">{errors.password}</p>}
+              </div>
+              
+              <div className="animate-fadeIn" style={{ animationDelay: userType === 'artisan' ? '0.55s' : '0.45s' }}>
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                  Confirm Password
+                </label>
+                <input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  value={form.confirmPassword}
+                  onChange={handleChange}
+                  className={`appearance-none block w-full px-4 py-3 border ${errors.confirmPassword ? 'border-red-500' : 'border-gray-300'} rounded-lg placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] focus:shadow-md`}
+                  placeholder="••••••••"
+                />
+                {errors.confirmPassword && <p className="mt-1 text-sm text-red-600 animate-pulse">{errors.confirmPassword}</p>}
+              </div>
+              
+              <div className="animate-fadeIn" style={{ animationDelay: userType === 'artisan' ? '0.6s' : '0.5s' }}>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-primary hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] hover:shadow-lg disabled:opacity-70 active:translate-y-[1px]"
+                >
+                  {isLoading ? (
+                    <span className="flex items-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Creating Account...
+                    </span>
+                  ) : (
+                    "Create Account"
+                  )}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="space-y-6 animate-fadeIn">
+              <PhoneLogin
+                onSuccess={handlePhoneSignupSuccess}
+                onError={handlePhoneSignupError}
+                isLoading={isLoading}
+                setIsLoading={setIsLoading}
               />
-              {errors.name && <p className="mt-1 text-sm text-red-600 animate-pulse">{errors.name}</p>}
-            </div>
-            
-            <div className="animate-fadeIn" style={{ animationDelay: '0.3s' }}>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Email address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                value={form.email}
-                onChange={handleChange}
-                className={`appearance-none block w-full px-4 py-3 border ${errors.email ? 'border-red-500' : 'border-gray-300'} rounded-lg placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] focus:shadow-md`}
-                placeholder="name@example.com"
-              />
-              {errors.email && <p className="mt-1 text-sm text-red-600 animate-pulse">{errors.email}</p>}
-            </div>
-            
-            {/* Artisan-specific fields */}
-            {userType === 'artisan' && (
-              <>
-                <div className="animate-fadeIn" style={{ animationDelay: '0.35s' }}>
-                  <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 mb-1">
-                    Shop/Company Name
-                  </label>
-                  <input
-                    id="companyName"
-                    name="companyName"
-                    type="text"
-                    value={form.companyName}
-                    onChange={handleChange}
-                    className={`appearance-none block w-full px-4 py-3 border ${errors.companyName ? 'border-red-500' : 'border-gray-300'} rounded-lg placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] focus:shadow-md`}
-                    placeholder="Handcrafted Treasures"
-                  />
-                  {errors.companyName && <p className="mt-1 text-sm text-red-600 animate-pulse">{errors.companyName}</p>}
-                </div>
-                
-                <div className="animate-fadeIn" style={{ animationDelay: '0.4s' }}>
-                  <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone Number
-                  </label>
-                  <input
-                    id="phoneNumber"
-                    name="phoneNumber"
-                    type="tel"
-                    value={form.phoneNumber}
-                    onChange={handleChange}
-                    className={`appearance-none block w-full px-4 py-3 border ${errors.phoneNumber ? 'border-red-500' : 'border-gray-300'} rounded-lg placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] focus:shadow-md`}
-                    placeholder="+1 (555) 123-4567"
-                  />
-                  {errors.phoneNumber && <p className="mt-1 text-sm text-red-600 animate-pulse">{errors.phoneNumber}</p>}
-                </div>
-              </>
-            )}
-            
-            <div className="animate-fadeIn" style={{ animationDelay: userType === 'artisan' ? '0.5s' : '0.4s' }}>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                value={form.password}
-                onChange={handleChange}
-                className={`appearance-none block w-full px-4 py-3 border ${errors.password ? 'border-red-500' : 'border-gray-300'} rounded-lg placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] focus:shadow-md`}
-                placeholder="••••••••"
-              />
-              {errors.password && <p className="mt-1 text-sm text-red-600 animate-pulse">{errors.password}</p>}
-            </div>
-            
-            <div className="animate-fadeIn" style={{ animationDelay: userType === 'artisan' ? '0.55s' : '0.45s' }}>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                Confirm Password
-              </label>
-              <input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                autoComplete="new-password"
-                value={form.confirmPassword}
-                onChange={handleChange}
-                className={`appearance-none block w-full px-4 py-3 border ${errors.confirmPassword ? 'border-red-500' : 'border-gray-300'} rounded-lg placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] focus:shadow-md`}
-                placeholder="••••••••"
-              />
-              {errors.confirmPassword && <p className="mt-1 text-sm text-red-600 animate-pulse">{errors.confirmPassword}</p>}
-            </div>
-            
-            <div className="animate-fadeIn" style={{ animationDelay: userType === 'artisan' ? '0.6s' : '0.5s' }}>
               <button
-                type="submit"
-                disabled={isLoading}
-                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-primary hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] hover:shadow-lg disabled:opacity-70 active:translate-y-[1px]"
+                onClick={togglePhoneSignup}
+                className="w-full text-center text-sm text-primary hover:text-primary-700 transition-colors duration-300"
               >
-                {isLoading ? (
-                  <span className="flex items-center">
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Creating Account...
-                  </span>
-                ) : (
-                  "Create Account"
-                )}
+                Sign up with email instead
               </button>
             </div>
-          </form>
+          )}
 
           <div className="mt-6 animate-fadeIn" style={{ animationDelay: userType === 'artisan' ? '0.7s' : '0.6s' }}>
             <div className="relative">
@@ -356,11 +389,16 @@ const RegisterPage: React.FC = () => {
                 </svg>
                 Google
               </button>
-              <button className="flex items-center justify-center w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] hover:shadow-md active:translate-y-[1px]">
-                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M20 10c0-5.523-4.477-10-10-10S0 4.477 0 10c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V10h2.54V7.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V10h2.773l-.443 2.89h-2.33v6.988C16.343 19.128 20 14.991 20 10z" />
+              <button
+                type="button"
+                onClick={togglePhoneSignup}
+                disabled={isLoading || showPhoneSignup}
+                className="flex items-center justify-center w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] hover:shadow-md active:translate-y-[1px] disabled:opacity-70"
+              >
+                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 0 0-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z" />
                 </svg>
-                Facebook
+                Phone Number
               </button>
             </div>
           </div>

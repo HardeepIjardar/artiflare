@@ -6,6 +6,8 @@ import {
   registerWithEmailAndPassword,
   loginWithGoogle,
   loginWithFacebook,
+  loginWithPhoneNumber,
+  verifyPhoneCode,
   logoutUser,
   resetPassword
 } from '../services/firebase';
@@ -19,6 +21,8 @@ interface AuthContextType {
   logout: () => Promise<{ success: boolean; error: string | null }>;
   googleLogin: () => Promise<{ user: User | null; error: string | null }>;
   facebookLogin: () => Promise<{ user: User | null; error: string | null }>;
+  phoneLogin: (phoneNumber: string, containerId: string) => Promise<{ confirmationResult: any; error: string | null }>;
+  verifyPhoneCode: (confirmationResult: any, code: string) => Promise<{ user: User | null; error: string | null }>;
   resetUserPassword: (email: string) => Promise<{ success: boolean; error: string | null }>;
   updateCurrentUser: (user: User | null) => void;
 }
@@ -74,6 +78,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const facebookLogin = async () => {
     return loginWithFacebook();
   };
+  
+  const phoneLogin = async (phoneNumber: string, containerId: string) => {
+    return loginWithPhoneNumber(phoneNumber, containerId);
+  };
+
+  const verifyPhone = async (confirmationResult: any, code: string) => {
+    return verifyPhoneCode(confirmationResult, code);
+  };
 
   const resetUserPassword = async (email: string) => {
     return resetPassword(email);
@@ -87,6 +99,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     logout,
     googleLogin,
     facebookLogin,
+    phoneLogin,
+    verifyPhoneCode: verifyPhone,
     resetUserPassword,
     updateCurrentUser
   };

@@ -10,7 +10,10 @@ import {
   signInWithPopup,
   updateProfile,
   onAuthStateChanged,
-  User
+  User,
+  PhoneAuthProvider,
+  signInWithPhoneNumber,
+  RecaptchaVerifier
 } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
@@ -37,6 +40,7 @@ const analytics = getAnalytics(app);
 // Authentication providers
 const googleProvider = new GoogleAuthProvider();
 const facebookProvider = new FacebookAuthProvider();
+const phoneProvider = new PhoneAuthProvider(auth);
 
 // Authentication functions
 const registerWithEmailAndPassword = async (
@@ -86,6 +90,50 @@ const loginWithFacebook = async () => {
   }
 };
 
+// Phone authentication
+let recaptchaVerifier: RecaptchaVerifier | null = null;
+
+const setupRecaptcha = (containerId: string) => {
+  if (!recaptchaVerifier) {
+    recaptchaVerifier = new RecaptchaVerifier(containerId, {
+      size: 'invisible',
+      callback: () => {
+        // reCAPTCHA solved, allow phone auth
+      },
+      'expired-callback': () => {
+        // Reset the reCAPTCHA
+        recaptchaVerifier = null;
+      }
+    }, auth);
+  }
+  return recaptchaVerifier;
+};
+
+const loginWithPhoneNumber = async (phoneNumber: string, containerId: string) => {
+  try {
+    const verifier = setupRecaptcha(containerId);
+    const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, verifier);
+    return { 
+      confirmationResult, 
+      error: null 
+    };
+  } catch (error: any) {
+    return { 
+      confirmationResult: null, 
+      error: error.message 
+    };
+  }
+};
+
+const verifyPhoneCode = async (confirmationResult: any, code: string) => {
+  try {
+    const userCredential = await confirmationResult.confirm(code);
+    return { user: userCredential.user, error: null };
+  } catch (error: any) {
+    return { user: null, error: error.message };
+  }
+};
+
 const logoutUser = async () => {
   try {
     await signOut(auth);
@@ -118,10 +166,14 @@ export {
   analytics,
   googleProvider,
   facebookProvider,
+  phoneProvider,
   registerWithEmailAndPassword,
   loginWithEmailAndPassword,
   loginWithGoogle,
   loginWithFacebook,
+  loginWithPhoneNumber,
+  verifyPhoneCode,
+  setupRecaptcha,
   logoutUser,
   resetPassword,
   subscribeToAuthChanges
