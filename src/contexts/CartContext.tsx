@@ -1,5 +1,4 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { useAuth } from './AuthContext';
 
 // Define type for cart items
 interface CartItem {
@@ -20,6 +19,7 @@ interface CartContextType {
   clearCart: () => void;
   cartTotal: number;
   cartCount: number;
+  setUserId: (userId: string) => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -33,9 +33,8 @@ export function useCart() {
 }
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const { currentUser } = useAuth();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const userId = currentUser?.uid || 'guest';
+  const [userId, setUserId] = useState<string>('guest');
 
   // Initialize cart from localStorage
   useEffect(() => {
@@ -49,39 +48,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     localStorage.setItem(`cart_${userId}`, JSON.stringify(cartItems));
   }, [cartItems, userId]);
-
-  // If user logs in, merge their guest cart with their user cart
-  useEffect(() => {
-    if (currentUser?.uid) {
-      const guestCart = localStorage.getItem('cart_guest');
-      const userCart = localStorage.getItem(`cart_${currentUser.uid}`);
-      
-      if (guestCart && (!userCart || userCart === '[]')) {
-        setCartItems(JSON.parse(guestCart));
-      } else if (guestCart && userCart && userCart !== '[]') {
-        // Merge guest and user carts
-        const guestItems = JSON.parse(guestCart);
-        const userItems = JSON.parse(userCart);
-        
-        // Add guest items that aren't already in user cart
-        const mergedItems = [...userItems];
-        guestItems.forEach((guestItem: CartItem) => {
-          const existingItem = mergedItems.find(item => item.id === guestItem.id);
-          if (existingItem) {
-            // Update quantity if item already exists
-            existingItem.quantity += guestItem.quantity;
-          } else {
-            // Add new item
-            mergedItems.push(guestItem);
-          }
-        });
-        
-        setCartItems(mergedItems);
-        // Clear guest cart after merging
-        localStorage.removeItem('cart_guest');
-      }
-    }
-  }, [currentUser]);
 
   // Add an item to the cart
   const addToCart = (item: CartItem) => {
@@ -143,7 +109,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       updateQuantity,
       clearCart,
       cartTotal,
-      cartCount
+      cartCount,
+      setUserId
     }}>
       {children}
     </CartContext.Provider>

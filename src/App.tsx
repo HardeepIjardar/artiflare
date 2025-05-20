@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
-import { CartProvider } from './contexts/CartContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { CartProvider, useCart } from './contexts/CartContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // Layout components
@@ -45,63 +45,112 @@ import OccasionsPage from './pages/customer/OccasionsPage';
 import OccasionDetailPage from './pages/customer/OccasionDetailPage';
 import HowItWorksPage from './pages/customer/HowItWorksPage';
 
+function AppContent() {
+  const { currentUser } = useAuth();
+  const { setUserId } = useCart();
+
+  useEffect(() => {
+    if (currentUser?.uid) {
+      // Merge guest cart with user cart
+      const guestCart = localStorage.getItem('cart_guest');
+      const userCart = localStorage.getItem(`cart_${currentUser.uid}`);
+      
+      if (guestCart && (!userCart || userCart === '[]')) {
+        // If user has no cart, use guest cart
+        localStorage.setItem(`cart_${currentUser.uid}`, guestCart);
+        localStorage.removeItem('cart_guest');
+      } else if (guestCart && userCart && userCart !== '[]') {
+        // Merge guest and user carts
+        const guestItems = JSON.parse(guestCart);
+        const userItems = JSON.parse(userCart);
+        
+        // Add guest items that aren't already in user cart
+        const mergedItems = [...userItems];
+        guestItems.forEach((guestItem: any) => {
+          const existingItem = mergedItems.find(item => item.id === guestItem.id);
+          if (existingItem) {
+            // Update quantity if item already exists
+            existingItem.quantity += guestItem.quantity;
+          } else {
+            // Add new item
+            mergedItems.push(guestItem);
+          }
+        });
+        
+        localStorage.setItem(`cart_${currentUser.uid}`, JSON.stringify(mergedItems));
+        localStorage.removeItem('cart_guest');
+      }
+      
+      // Update cart context with user ID
+      setUserId(currentUser.uid);
+    } else {
+      // Reset to guest cart
+      setUserId('guest');
+    }
+  }, [currentUser, setUserId]);
+
+  return (
+    <Router>
+      <Routes>
+        {/* Public Routes */}
+        <Route path="/" element={<MainLayout />}>
+          <Route index element={<HomePage />} />
+          <Route path="products" element={<ProductsPage />} />
+          <Route path="products/:id" element={<ProductDetailPage />} />
+          <Route path="occasions" element={<OccasionsPage />} />
+          <Route path="occasions/:occasion" element={<OccasionDetailPage />} />
+          <Route path="how-it-works" element={<HowItWorksPage />} />
+          <Route path="cart" element={<CartPage />} />
+        </Route>
+
+        {/* Auth Routes */}
+        <Route path="login" element={<LoginPage />} />
+        <Route path="register" element={<RegisterPage />} />
+        <Route path="forgot-password" element={<ForgotPasswordPage />} />
+
+        {/* Protected Customer Routes */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/" element={<MainLayout />}>
+            <Route path="checkout" element={<CheckoutPage />} />
+            <Route path="orders" element={<OrdersPage />} />
+            <Route path="orders/:id/tracking" element={<OrderTrackingPage />} />
+            <Route path="profile" element={<ProfilePage />} />
+            <Route path="profile/edit" element={<EditProfilePage />} />
+            <Route path="wishlist" element={<WishlistPage />} />
+          </Route>
+        </Route>
+
+        {/* Artisan Routes - Protected with role */}
+        <Route element={<ProtectedRoute allowedRoles={['artisan']} />}>
+          <Route path="/artisan" element={<ArtisanLayout />}>
+            <Route index element={<ArtisanDashboard />} />
+            <Route path="products" element={<ArtisanProducts />} />
+            <Route path="orders" element={<ArtisanOrders />} />
+            <Route path="earnings" element={<ArtisanEarnings />} />
+            <Route path="settings" element={<ArtisanSettings />} />
+          </Route>
+        </Route>
+
+        {/* Admin Routes - Protected with role */}
+        <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminDashboard />} />
+            <Route path="products" element={<AdminProducts />} />
+            <Route path="orders" element={<AdminOrders />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="settings" element={<AdminSettings />} />
+          </Route>
+        </Route>
+      </Routes>
+    </Router>
+  );
+}
+
 function App() {
   return (
     <AuthProvider>
       <CartProvider>
-        <Router>
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<MainLayout />}>
-              <Route index element={<HomePage />} />
-              <Route path="products" element={<ProductsPage />} />
-              <Route path="products/:id" element={<ProductDetailPage />} />
-              <Route path="occasions" element={<OccasionsPage />} />
-              <Route path="occasions/:occasion" element={<OccasionDetailPage />} />
-              <Route path="how-it-works" element={<HowItWorksPage />} />
-              <Route path="cart" element={<CartPage />} />
-            </Route>
-
-            {/* Auth Routes */}
-            <Route path="login" element={<LoginPage />} />
-            <Route path="register" element={<RegisterPage />} />
-            <Route path="forgot-password" element={<ForgotPasswordPage />} />
-
-            {/* Protected Customer Routes */}
-            <Route element={<ProtectedRoute />}>
-              <Route path="/" element={<MainLayout />}>
-                <Route path="checkout" element={<CheckoutPage />} />
-                <Route path="orders" element={<OrdersPage />} />
-                <Route path="orders/:id/tracking" element={<OrderTrackingPage />} />
-                <Route path="profile" element={<ProfilePage />} />
-                <Route path="profile/edit" element={<EditProfilePage />} />
-                <Route path="wishlist" element={<WishlistPage />} />
-              </Route>
-            </Route>
-
-            {/* Artisan Routes - Protected with role */}
-            <Route element={<ProtectedRoute allowedRoles={['artisan']} />}>
-              <Route path="/artisan" element={<ArtisanLayout />}>
-                <Route index element={<ArtisanDashboard />} />
-                <Route path="products" element={<ArtisanProducts />} />
-                <Route path="orders" element={<ArtisanOrders />} />
-                <Route path="earnings" element={<ArtisanEarnings />} />
-                <Route path="settings" element={<ArtisanSettings />} />
-              </Route>
-            </Route>
-
-            {/* Admin Routes - Protected with role */}
-            <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-              <Route path="/admin" element={<AdminLayout />}>
-                <Route index element={<AdminDashboard />} />
-                <Route path="products" element={<AdminProducts />} />
-                <Route path="orders" element={<AdminOrders />} />
-                <Route path="users" element={<AdminUsers />} />
-                <Route path="settings" element={<AdminSettings />} />
-              </Route>
-            </Route>
-          </Routes>
-        </Router>
+        <AppContent />
       </CartProvider>
     </AuthProvider>
   );

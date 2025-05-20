@@ -19,15 +19,15 @@ import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getAnalytics } from 'firebase/analytics';
 
-// Firebase configuration - directly from Firebase console
+// Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyD2ctaRHrLlFshYg_ib9YM_30-VTf-zeQE",
-  authDomain: "artiflare-54602.firebaseapp.com",
-  projectId: "artiflare-54602",
-  storageBucket: "artiflare-54602.appspot.com",
-  messagingSenderId: "926795686052",
-  appId: "1:926795686052:web:04fdd004b4ea0a5df70631",
-  measurementId: "G-3JQE4F79BY"
+  apiKey: "AIzaSyD0iSHDuOcPrm-yEaNm9zFxGma1gJENa2k",
+  authDomain: "artiflare-001-35be5.firebaseapp.com",
+  projectId: "artiflare-001-35be5",
+  storageBucket: "artiflare-001-35be5.firebasestorage.app",
+  messagingSenderId: "115283598563",
+  appId: "1:115283598563:web:ffda51f61ebf8088e279d6",
+  measurementId: "G-2V6V0S1P77"
 };
 
 // Initialize Firebase and services
