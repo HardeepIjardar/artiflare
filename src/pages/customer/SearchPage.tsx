@@ -188,7 +188,7 @@ const SearchPage: React.FC = () => {
                   <Link to={`/products/${product.id}`}>
                     <div className="h-40 rounded-md mb-4 overflow-hidden">
                       <img 
-                        src={product.images[0]} 
+                        src={product.images && product.images.length > 0 ? product.images[0] : '/placeholder-product.jpg'} 
                         alt={product.name}
                         className="w-full h-full object-cover"
                       />

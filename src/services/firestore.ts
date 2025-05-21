@@ -52,8 +52,8 @@ export interface Product {
   category: string;
   subcategory?: string;
   artisanId: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  createdAt: Date;
+  updatedAt: Date;
   inventory: number;
   attributes: Record<string, any>;
   tags: string[];
@@ -176,23 +176,22 @@ export const getUserData = async (userId: string) => {
 };
 
 // Product operations
-export const createProduct = async (productData: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => {
+export const createProduct = async (productData: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Promise<{ productId: string | null; error: string | null }> => {
   try {
     const productsRef = collection(db, 'products');
-    const timestamp = serverTimestamp();
+    const now = new Date();
     
-    const docRef = await addDoc(productsRef, {
+    const newProduct = {
       ...productData,
-      createdAt: timestamp,
-      updatedAt: timestamp
-    });
+      createdAt: now,
+      updatedAt: now
+    };
     
-    // Update the document with its ID
-    await updateDoc(docRef, { id: docRef.id });
-    
+    const docRef = await addDoc(productsRef, newProduct);
     return { productId: docRef.id, error: null };
-  } catch (error: any) {
-    return { productId: null, error: error.message };
+  } catch (error) {
+    console.error('Error creating product:', error);
+    return { productId: null, error: 'Failed to create product' };
   }
 };
 
@@ -211,28 +210,31 @@ export const getProductById = async (productId: string) => {
   }
 };
 
-export const updateProduct = async (productId: string, updates: Partial<Product>) => {
+export const updateProduct = async (productId: string, productData: Partial<Product>): Promise<{ error: string | null }> => {
   try {
     const productRef = doc(db, 'products', productId);
-    await updateDoc(productRef, {
-      ...updates,
-      updatedAt: Timestamp.now()
-    });
     
-    return { success: true, error: null };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+    const updateData = {
+      ...productData,
+      updatedAt: new Date()
+    };
+    
+    await updateDoc(productRef, updateData);
+    return { error: null };
+  } catch (error) {
+    console.error('Error updating product:', error);
+    return { error: 'Failed to update product' };
   }
 };
 
-export const deleteProduct = async (productId: string) => {
+export const deleteProduct = async (productId: string): Promise<{ error: string | null }> => {
   try {
     const productRef = doc(db, 'products', productId);
     await deleteDoc(productRef);
-    
-    return { success: true, error: null };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+    return { error: null };
+  } catch (error) {
+    console.error('Error deleting product:', error);
+    return { error: 'Failed to delete product' };
   }
 };
 
@@ -256,20 +258,23 @@ export const getProducts = async (
   }
 };
 
-export const getProductsByArtisan = async (artisanId: string) => {
+export const getProductsByArtisan = async (artisanId: string): Promise<{ products: Product[]; error: string | null }> => {
   try {
     const productsRef = collection(db, 'products');
     const q = query(productsRef, where('artisanId', '==', artisanId));
     const querySnapshot = await getDocs(q);
     
-    const products: Product[] = [];
-    querySnapshot.forEach((doc) => {
-      products.push(doc.data() as Product);
-    });
+    const products = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: doc.data().createdAt?.toDate(),
+      updatedAt: doc.data().updatedAt?.toDate()
+    })) as Product[];
     
     return { products, error: null };
-  } catch (error: any) {
-    return { products: [], error: error.message };
+  } catch (error) {
+    console.error('Error fetching artisan products:', error);
+    return { products: [], error: 'Failed to fetch products' };
   }
 };
 

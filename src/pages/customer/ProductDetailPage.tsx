@@ -100,7 +100,7 @@ const ProductDetailPage: React.FC = () => {
         <div className="md:flex">
           <div className="md:w-1/2">
             <img 
-              src={product.images[0]} 
+              src={product.images && product.images.length > 0 ? product.images[0] : '/placeholder-product.jpg'} 
               alt={product.name}
               className="w-full h-full object-cover"
             />
