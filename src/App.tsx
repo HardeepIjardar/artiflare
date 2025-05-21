@@ -20,6 +20,7 @@ import OrderTrackingPage from './pages/customer/OrderTrackingPage';
 import ProfilePage from './pages/customer/ProfilePage';
 import WishlistPage from './pages/customer/WishlistPage';
 import EditProfilePage from './pages/customer/EditProfilePage';
+import SearchPage from './pages/customer/SearchPage';
 
 // Auth pages
 import LoginPage from './pages/auth/LoginPage';
@@ -45,7 +46,8 @@ import OccasionsPage from './pages/customer/OccasionsPage';
 import OccasionDetailPage from './pages/customer/OccasionDetailPage';
 import HowItWorksPage from './pages/customer/HowItWorksPage';
 
-function AppContent() {
+// Routes component that uses the contexts
+function RoutesWithAuth() {
   const { currentUser } = useAuth();
   const { setUserId } = useCart();
 
@@ -90,69 +92,70 @@ function AppContent() {
   }, [currentUser, setUserId]);
 
   return (
-    <Router>
-      <Routes>
-        {/* Public Routes */}
+    <Routes>
+      {/* Public Routes */}
+      <Route path="/" element={<MainLayout />}>
+        <Route index element={<HomePage />} />
+        <Route path="products" element={<ProductsPage />} />
+        <Route path="products/:id" element={<ProductDetailPage />} />
+        <Route path="search" element={<SearchPage />} />
+        <Route path="occasions" element={<OccasionsPage />} />
+        <Route path="occasions/:occasion" element={<OccasionDetailPage />} />
+        <Route path="how-it-works" element={<HowItWorksPage />} />
+        <Route path="cart" element={<CartPage />} />
+      </Route>
+
+      {/* Auth Routes */}
+      <Route path="login" element={<LoginPage />} />
+      <Route path="register" element={<RegisterPage />} />
+      <Route path="forgot-password" element={<ForgotPasswordPage />} />
+
+      {/* Protected Customer Routes */}
+      <Route element={<ProtectedRoute />}>
         <Route path="/" element={<MainLayout />}>
-          <Route index element={<HomePage />} />
-          <Route path="products" element={<ProductsPage />} />
-          <Route path="products/:id" element={<ProductDetailPage />} />
-          <Route path="occasions" element={<OccasionsPage />} />
-          <Route path="occasions/:occasion" element={<OccasionDetailPage />} />
-          <Route path="how-it-works" element={<HowItWorksPage />} />
-          <Route path="cart" element={<CartPage />} />
+          <Route path="checkout" element={<CheckoutPage />} />
+          <Route path="orders" element={<OrdersPage />} />
+          <Route path="orders/:id/tracking" element={<OrderTrackingPage />} />
+          <Route path="profile" element={<ProfilePage />} />
+          <Route path="profile/edit" element={<EditProfilePage />} />
+          <Route path="wishlist" element={<WishlistPage />} />
         </Route>
+      </Route>
 
-        {/* Auth Routes */}
-        <Route path="login" element={<LoginPage />} />
-        <Route path="register" element={<RegisterPage />} />
-        <Route path="forgot-password" element={<ForgotPasswordPage />} />
-
-        {/* Protected Customer Routes */}
-        <Route element={<ProtectedRoute />}>
-          <Route path="/" element={<MainLayout />}>
-            <Route path="checkout" element={<CheckoutPage />} />
-            <Route path="orders" element={<OrdersPage />} />
-            <Route path="orders/:id/tracking" element={<OrderTrackingPage />} />
-            <Route path="profile" element={<ProfilePage />} />
-            <Route path="profile/edit" element={<EditProfilePage />} />
-            <Route path="wishlist" element={<WishlistPage />} />
-          </Route>
+      {/* Artisan Routes - Protected with role */}
+      <Route element={<ProtectedRoute allowedRoles={['artisan']} />}>
+        <Route path="/artisan" element={<ArtisanLayout />}>
+          <Route index element={<ArtisanDashboard />} />
+          <Route path="products" element={<ArtisanProducts />} />
+          <Route path="orders" element={<ArtisanOrders />} />
+          <Route path="earnings" element={<ArtisanEarnings />} />
+          <Route path="settings" element={<ArtisanSettings />} />
         </Route>
+      </Route>
 
-        {/* Artisan Routes - Protected with role */}
-        <Route element={<ProtectedRoute allowedRoles={['artisan']} />}>
-          <Route path="/artisan" element={<ArtisanLayout />}>
-            <Route index element={<ArtisanDashboard />} />
-            <Route path="products" element={<ArtisanProducts />} />
-            <Route path="orders" element={<ArtisanOrders />} />
-            <Route path="earnings" element={<ArtisanEarnings />} />
-            <Route path="settings" element={<ArtisanSettings />} />
-          </Route>
+      {/* Admin Routes - Protected with role */}
+      <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<AdminDashboard />} />
+          <Route path="products" element={<AdminProducts />} />
+          <Route path="orders" element={<AdminOrders />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="settings" element={<AdminSettings />} />
         </Route>
-
-        {/* Admin Routes - Protected with role */}
-        <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<AdminDashboard />} />
-            <Route path="products" element={<AdminProducts />} />
-            <Route path="orders" element={<AdminOrders />} />
-            <Route path="users" element={<AdminUsers />} />
-            <Route path="settings" element={<AdminSettings />} />
-          </Route>
-        </Route>
-      </Routes>
-    </Router>
+      </Route>
+    </Routes>
   );
 }
 
 function App() {
   return (
-    <AuthProvider>
-      <CartProvider>
-        <AppContent />
-      </CartProvider>
-    </AuthProvider>
+    <Router>
+      <AuthProvider>
+        <CartProvider>
+          <RoutesWithAuth />
+        </CartProvider>
+      </AuthProvider>
+    </Router>
   );
 }
 

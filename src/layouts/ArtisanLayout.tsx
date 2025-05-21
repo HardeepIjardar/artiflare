@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Outlet, Link } from 'react-router-dom';
+import { Outlet, Link, NavLink } from 'react-router-dom';
 import { FaUserCircle } from 'react-icons/fa';
 import Logo from '../components/Logo';
 import { useAuth } from '../contexts/AuthContext';
@@ -79,21 +79,67 @@ const ArtisanLayout: React.FC = () => {
         <div className="w-64 bg-white border-r border-[#e0e0e0] p-6">
           <h2 className="text-xl font-bold text-dark mb-6">Artisan Dashboard</h2>
           <nav className="space-y-2">
-            <Link to="/artisan" className="block py-2 px-4 rounded-md bg-primary-50 text-primary font-medium">
+            <NavLink 
+              to="/artisan" 
+              end
+              className={({ isActive }) => 
+                `block py-2 px-4 rounded-md transition-colors duration-200 ${
+                  isActive 
+                    ? 'bg-primary-50 text-primary font-medium' 
+                    : 'text-dark hover:bg-primary-50 hover:text-primary'
+                }`
+              }
+            >
               Dashboard
-            </Link>
-            <Link to="/artisan/products" className="block py-2 px-4 rounded-md text-dark hover:bg-primary-50 hover:text-primary">
+            </NavLink>
+            <NavLink 
+              to="/artisan/products" 
+              className={({ isActive }) => 
+                `block py-2 px-4 rounded-md transition-colors duration-200 ${
+                  isActive 
+                    ? 'bg-primary-50 text-primary font-medium' 
+                    : 'text-dark hover:bg-primary-50 hover:text-primary'
+                }`
+              }
+            >
               Products
-            </Link>
-            <Link to="/artisan/orders" className="block py-2 px-4 rounded-md text-dark hover:bg-primary-50 hover:text-primary">
+            </NavLink>
+            <NavLink 
+              to="/artisan/orders" 
+              className={({ isActive }) => 
+                `block py-2 px-4 rounded-md transition-colors duration-200 ${
+                  isActive 
+                    ? 'bg-primary-50 text-primary font-medium' 
+                    : 'text-dark hover:bg-primary-50 hover:text-primary'
+                }`
+              }
+            >
               Orders
-            </Link>
-            <Link to="/artisan/earnings" className="block py-2 px-4 rounded-md text-dark hover:bg-primary-50 hover:text-primary">
+            </NavLink>
+            <NavLink 
+              to="/artisan/earnings" 
+              className={({ isActive }) => 
+                `block py-2 px-4 rounded-md transition-colors duration-200 ${
+                  isActive 
+                    ? 'bg-primary-50 text-primary font-medium' 
+                    : 'text-dark hover:bg-primary-50 hover:text-primary'
+                }`
+              }
+            >
               Earnings
-            </Link>
-            <Link to="/artisan/settings" className="block py-2 px-4 rounded-md text-dark hover:bg-primary-50 hover:text-primary">
+            </NavLink>
+            <NavLink 
+              to="/artisan/settings" 
+              className={({ isActive }) => 
+                `block py-2 px-4 rounded-md transition-colors duration-200 ${
+                  isActive 
+                    ? 'bg-primary-50 text-primary font-medium' 
+                    : 'text-dark hover:bg-primary-50 hover:text-primary'
+                }`
+              }
+            >
               Settings
-            </Link>
+            </NavLink>
           </nav>
         </div>
         
