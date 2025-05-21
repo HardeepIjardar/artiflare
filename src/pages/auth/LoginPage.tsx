@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import GoogleLogin from '../../components/auth/GoogleLogin';
 import PhoneLogin from '../../components/auth/PhoneLogin';
+import { User } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../services/firebase';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -16,6 +20,28 @@ const LoginPage: React.FC = () => {
   // Get the redirect path from location state or default to home
   const from = (location.state as any)?.from?.pathname || '/';
 
+  const getUserRole = async (user: User) => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userDoc.exists()) {
+        return userDoc.data().role;
+      }
+      return 'customer'; // Default role if not found
+    } catch (error) {
+      console.error('Error fetching user role:', error);
+      return 'customer'; // Default role on error
+    }
+  };
+
+  const handleRedirect = async (user: User) => {
+    const role = await getUserRole(user);
+    if (role === 'artisan') {
+      navigate('/artisan');
+    } else {
+      navigate(from, { replace: true });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -26,9 +52,8 @@ const LoginPage: React.FC = () => {
       
       if (result.error) {
         setError(result.error);
-      } else {
-        // Successful login, redirect to the original page or home
-        navigate(from, { replace: true });
+      } else if (result.user) {
+        await handleRedirect(result.user);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to login');
@@ -46,8 +71,8 @@ const LoginPage: React.FC = () => {
       
       if (result.error) {
         setError(result.error);
-      } else {
-        navigate(from, { replace: true });
+      } else if (result.user) {
+        await handleRedirect(result.user);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to login with Google');
@@ -56,8 +81,8 @@ const LoginPage: React.FC = () => {
     }
   };
 
-  const handlePhoneLoginSuccess = (user: any) => {
-    navigate(from, { replace: true });
+  const handlePhoneLoginSuccess = async (user: User) => {
+    await handleRedirect(user);
   };
 
   const handlePhoneLoginError = (errorMsg: string) => {

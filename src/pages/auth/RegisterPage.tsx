@@ -4,6 +4,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import { createUser } from '../../services/firestore';
 import UserProfileSetup from '../../components/auth/UserProfileSetup';
 import PhoneLogin from '../../components/auth/PhoneLogin';
+import { User } from 'firebase/auth';
+import { doc, getDoc, Timestamp } from 'firebase/firestore';
+import { db } from '../../services/firebase';
 
 type UserType = 'buyer' | 'artisan';
 
@@ -87,6 +90,28 @@ const RegisterPage: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  const getUserRole = async (user: User) => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userDoc.exists()) {
+        return userDoc.data().role;
+      }
+      return 'customer'; // Default role if not found
+    } catch (error) {
+      console.error('Error fetching user role:', error);
+      return 'customer'; // Default role on error
+    }
+  };
+
+  const handleRedirect = async (user: User) => {
+    const role = await getUserRole(user);
+    if (role === 'artisan') {
+      navigate('/artisan');
+    } else {
+      navigate('/');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -100,9 +125,20 @@ const RegisterPage: React.FC = () => {
         if (result.error) {
           setErrors({ form: result.error });
           setIsLoading(false);
-        } else {
-          // If registration successful, show the profile setup component
-          setRegistrationComplete(true);
+        } else if (result.user) {
+          // Create user document in Firestore with role
+          await createUser(result.user.uid, {
+            displayName: form.name,
+            email: form.email,
+            role: userType === 'buyer' ? 'customer' : 'artisan',
+            companyName: userType === 'artisan' ? form.companyName : undefined,
+            phoneNumber: userType === 'artisan' ? form.phoneNumber : undefined,
+            createdAt: Timestamp.now(),
+            updatedAt: Timestamp.now()
+          });
+
+          // Redirect based on role
+          await handleRedirect(result.user);
           
           // Reset form fields
           setForm({
@@ -129,9 +165,18 @@ const RegisterPage: React.FC = () => {
       
       if (result.error) {
         setErrors({ form: result.error });
-      } else {
-        // For Google sign-in, we'll still need to set their role
-        setRegistrationComplete(true);
+      } else if (result.user) {
+        // Create user document in Firestore with role
+        await createUser(result.user.uid, {
+          displayName: result.user.displayName || '',
+          email: result.user.email || '',
+          role: userType === 'buyer' ? 'customer' : 'artisan',
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now()
+        });
+
+        // Redirect based on role
+        await handleRedirect(result.user);
       }
     } catch (error: any) {
       setErrors({ form: error.message || 'Google sign-up failed' });
@@ -140,9 +185,18 @@ const RegisterPage: React.FC = () => {
     }
   };
 
-  const handlePhoneSignupSuccess = (user: any) => {
-    // For phone sign-in, we'll still need to set their role
-    setRegistrationComplete(true);
+  const handlePhoneSignupSuccess = async (user: User) => {
+    // Create user document in Firestore with role
+    await createUser(user.uid, {
+      displayName: user.displayName || '',
+      email: user.email || '',
+      role: userType === 'buyer' ? 'customer' : 'artisan',
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now()
+    });
+
+    // Redirect based on role
+    await handleRedirect(user);
   };
 
   const handlePhoneSignupError = (error: string) => {

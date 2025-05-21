@@ -1,145 +1,119 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { setupRecaptcha } from '../../services/firebase';
+import { User } from 'firebase/auth';
 
 interface PhoneLoginProps {
-  onSuccess: (user: any) => void;
-  onError: (error: string) => void;
-  isLoading: boolean;
-  setIsLoading: (loading: boolean) => void;
+  onSuccess?: (user: User) => void;
+  onError?: (error: string) => void;
+  isLoading?: boolean;
+  setIsLoading?: (loading: boolean) => void;
 }
 
-const PhoneLogin: React.FC<PhoneLoginProps> = ({ onSuccess, onError, isLoading, setIsLoading }) => {
+const PhoneLogin: React.FC<PhoneLoginProps> = ({ 
+  onSuccess, 
+  onError,
+  isLoading = false,
+  setIsLoading
+}) => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
-  const [codeSent, setCodeSent] = useState(false);
   const [confirmationResult, setConfirmationResult] = useState<any>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
   const { phoneLogin, verifyPhoneCode } = useAuth();
 
-  const handlePhoneNumberSubmit = async (e: React.FormEvent) => {
+  useEffect(() => {
+    // Setup reCAPTCHA when component mounts
+    setupRecaptcha('recaptcha-container');
+  }, []);
+
+  const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    
+    setIsLoading?.(true);
     try {
-      // Format phone number with international code if not provided
-      const formattedPhoneNumber = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
-      
-      const result = await phoneLogin(formattedPhoneNumber, 'recaptcha-container');
-      
+      const result = await phoneLogin(phoneNumber, 'recaptcha-container');
       if (result.error) {
-        onError(result.error);
+        onError?.(result.error);
       } else {
         setConfirmationResult(result.confirmationResult);
-        setCodeSent(true);
+        setIsVerifying(true);
       }
-    } catch (err: any) {
-      onError(err.message || 'Failed to send verification code');
+    } catch (error: any) {
+      onError?.(error.message);
     } finally {
-      setIsLoading(false);
+      setIsLoading?.(false);
     }
   };
 
   const handleVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    
+    setIsLoading?.(true);
     try {
       const result = await verifyPhoneCode(confirmationResult, verificationCode);
-      
       if (result.error) {
-        onError(result.error);
-      } else {
-        onSuccess(result.user);
+        onError?.(result.error);
+      } else if (result.user) {
+        onSuccess?.(result.user);
       }
-    } catch (err: any) {
-      onError(err.message || 'Failed to verify code');
+    } catch (error: any) {
+      onError?.(error.message);
     } finally {
-      setIsLoading(false);
+      setIsLoading?.(false);
     }
   };
 
   return (
-    <div>
-      <div id="recaptcha-container"></div>
+    <div className="w-full max-w-md mx-auto p-6">
+      <div id="recaptcha-container" className="mb-4"></div>
       
-      {!codeSent ? (
-        <form onSubmit={handlePhoneNumberSubmit}>
-          <div className="mb-4">
-            <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 mb-1">
+      {!isVerifying ? (
+        <form onSubmit={handleSendCode} className="space-y-4">
+          <div>
+            <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
               Phone Number
             </label>
             <input
-              id="phoneNumber"
               type="tel"
+              id="phone"
               value={phoneNumber}
               onChange={(e) => setPhoneNumber(e.target.value)}
-              placeholder="+1 123 456 7890"
-              className="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-lg placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 ease-in-out"
+              placeholder="+1234567890"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
               required
+              disabled={isLoading}
             />
-            <p className="mt-1 text-xs text-gray-500">
-              Enter your phone number with country code (e.g., +1 for US)
-            </p>
           </div>
-          
           <button
             type="submit"
-            disabled={isLoading || !phoneNumber}
-            className="w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-primary hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all duration-300 ease-in-out disabled:opacity-70"
+            disabled={isLoading}
+            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
           >
-            {isLoading ? (
-              <span className="flex items-center">
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Sending...
-              </span>
-            ) : (
-              "Send Verification Code"
-            )}
+            {isLoading ? 'Sending...' : 'Send Verification Code'}
           </button>
         </form>
       ) : (
-        <form onSubmit={handleVerifyCode}>
-          <div className="mb-4">
-            <label htmlFor="verificationCode" className="block text-sm font-medium text-gray-700 mb-1">
+        <form onSubmit={handleVerifyCode} className="space-y-4">
+          <div>
+            <label htmlFor="code" className="block text-sm font-medium text-gray-700">
               Verification Code
             </label>
             <input
-              id="verificationCode"
               type="text"
+              id="code"
               value={verificationCode}
               onChange={(e) => setVerificationCode(e.target.value)}
-              placeholder="Enter code"
-              className="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-lg placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 ease-in-out"
+              placeholder="Enter 6-digit code"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
               required
+              disabled={isLoading}
             />
           </div>
-          
           <button
             type="submit"
-            disabled={isLoading || !verificationCode}
-            className="w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-primary hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all duration-300 ease-in-out disabled:opacity-70"
+            disabled={isLoading}
+            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
           >
-            {isLoading ? (
-              <span className="flex items-center">
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Verifying...
-              </span>
-            ) : (
-              "Verify Code"
-            )}
-          </button>
-          
-          <button
-            type="button"
-            onClick={() => setCodeSent(false)}
-            className="mt-2 w-full flex justify-center py-2 px-4 text-sm font-medium text-primary hover:text-primary-700 focus:outline-none transition-all duration-300 ease-in-out"
-          >
-            Change Phone Number
+            {isLoading ? 'Verifying...' : 'Verify Code'}
           </button>
         </form>
       )}
