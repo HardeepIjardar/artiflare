@@ -17,6 +17,11 @@ ArtiFlare is a comprehensive e-commerce solution that enables artisans to showca
   - **Customers**: Browse products, place orders, track deliveries
   - **Artisans**: Manage shop, list products, fulfill orders
   - **Administrators**: Oversee platform operations, manage users
+- **Smart Cart System**:
+  - Dynamic quantity management
+  - Real-time cart updates
+  - Persistent cart state across sessions
+  - Automatic item removal when quantity reaches zero
 - **Product Customization**: Personalize gifts with custom text, colors, and materials
 - **SOS Delivery**: Expedited delivery options for urgent gift needs
 - **Location Tracking**: Real-time map-based order tracking
@@ -30,11 +35,13 @@ ArtiFlare is a comprehensive e-commerce solution that enables artisans to showca
 - **UI/Styling**: 
   - Tailwind CSS with custom color palette
   - Framer Motion for animations
+  - Headless UI for accessible components
 - **Routing**: React Router v6
 - **State Management**: React Context API
 - **Backend & Database**: Firebase (Authentication, Firestore, Storage)
 - **Payment Processing**: Stripe API integration
 - **Form Handling**: React Hook Form with Zod validation
+- **Local Storage**: For persistent cart state
 
 ## 🎨 Design System
 
@@ -97,6 +104,10 @@ src/
 ├── assets/       # Static assets (images, icons, fonts)
 ├── components/   # Reusable UI components
 ├── contexts/     # React contexts for state management
+│   ├── AuthContext.tsx    # Authentication state
+│   ├── CartContext.tsx    # Shopping cart state
+│   └── ...
+├── data/         # Static data and mock data
 ├── hooks/        # Custom React hooks
 ├── layouts/      # Page layout components
 │   ├── AdminLayout
@@ -106,6 +117,10 @@ src/
 │   ├── admin/    # Admin dashboard pages
 │   ├── artisan/  # Artisan dashboard pages
 │   └── customer/ # Customer-facing pages
+│       ├── ProductsPage.tsx      # Browse all products
+│       ├── ProductDetailPage.tsx # Individual product view
+│       ├── CartPage.tsx         # Shopping cart
+│       └── ...
 ├── services/     # API and third-party service integrations
 ├── utils/        # Utility functions and helpers
 └── App.tsx       # Main application component
@@ -115,6 +130,7 @@ src/
 
 - **Customer Experience**:
   - Browse products by category or occasion
+  - Smart cart system with dynamic quantity management
   - Customize gifts with personalization options
   - Track orders in real-time on a map
   - Manage profile and order history
