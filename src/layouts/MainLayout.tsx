@@ -4,6 +4,7 @@ import { FaUserCircle, FaShoppingCart } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import Logo from '../components/Logo';
+import { getUserData } from '../services/firestore';
 
 const MainLayout: React.FC = () => {
   const { currentUser, logout } = useAuth();
@@ -14,10 +15,26 @@ const MainLayout: React.FC = () => {
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const [isHeroSearchVisible, setIsHeroSearchVisible] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [userRole, setUserRole] = useState<'customer' | 'artisan' | 'admin' | null>(null);
   const isHomePage = location.pathname === '/';
   
   // Reference to the hero section search bar (for intersection observer)
   const heroSearchRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (currentUser) {
+        const userData = await getUserData(currentUser.uid);
+        if (userData && !userData.error) {
+          setUserRole(userData.role);
+        }
+      } else {
+        setUserRole(null);
+      }
+    };
+
+    fetchUserRole();
+  }, [currentUser]);
 
   useEffect(() => {
     // Close the profile menu when clicking outside
@@ -141,13 +158,22 @@ const MainLayout: React.FC = () => {
                       onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
                     >
                       <FaUserCircle className="h-8 w-8 text-primary" />
-                      {currentUser.displayName && (
-                        <span className="ml-2 hidden md:block">{currentUser.displayName}</span>
+                      {currentUser?.displayName && (
+                        <span className="ml-2 text-dark">{currentUser.displayName}</span>
                       )}
                     </button>
                     
                     {isProfileMenuOpen && (
                       <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 z-50">
+                        {userRole === 'artisan' && (
+                          <Link 
+                            to="/artisan" 
+                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            onClick={() => setIsProfileMenuOpen(false)}
+                          >
+                            Dashboard
+                          </Link>
+                        )}
                         <Link 
                           to="/profile" 
                           className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"

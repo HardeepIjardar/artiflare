@@ -1,70 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { FaBirthdayCake, FaWineGlassAlt, FaHeart, FaSeedling, FaUser, FaSignOutAlt, FaThLarge } from 'react-icons/fa';
-
-// Navigation Bar Component
-const NavBar: React.FC<{ isArtisan: boolean }> = ({ isArtisan }) => {
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-
-  return (
-    <nav className="bg-white border-b border-[#e0e0e0]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center">
-            <img 
-              src="/logo.png" 
-              alt="ArtiFlare Logo" 
-              className="h-8 w-auto"
-            />
-            <span className="ml-2 text-xl font-bold text-primary">ArtiFlare</span>
-          </Link>
-
-          {/* Profile Dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-white hover:bg-primary-dark transition-colors"
-            >
-              <FaUser size={20} />
-            </button>
-            
-            {isProfileOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-50 border border-[#e0e0e0]">
-                {isArtisan && (
-                  <Link
-                    to="/dashboard"
-                    className="flex items-center px-4 py-2 text-dark hover:bg-gray-100"
-                    onClick={() => setIsProfileOpen(false)}
-                  >
-                    <FaThLarge className="mr-2" />
-                    Dashboard
-                  </Link>
-                )}
-                <Link
-                  to="/browse"
-                  className="flex items-center px-4 py-2 text-dark hover:bg-gray-100"
-                  onClick={() => setIsProfileOpen(false)}
-                >
-                  <FaThLarge className="mr-2" />
-                  Browse
-                </Link>
-                <Link
-                  to="/logout"
-                  className="flex items-center px-4 py-2 text-dark hover:bg-gray-100"
-                  onClick={() => setIsProfileOpen(false)}
-                >
-                  <FaSignOutAlt className="mr-2" />
-                  Logout
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </nav>
-  );
-};
+import { FaBirthdayCake, FaWineGlassAlt, FaHeart, FaSeedling } from 'react-icons/fa';
 
 // Hero Section with Search bar
 const HeroSection = () => (
@@ -231,12 +167,8 @@ const FeaturedArtisansSection = () => (
 
 // HomePage Component
 const HomePage: React.FC = () => {
-  // This should be replaced with actual user authentication logic
-  const isArtisan = false; // Example value, replace with actual user role check
-
   return (
     <div>
-      <NavBar isArtisan={isArtisan} />
       <HeroSection />
       <OccasionsSection />
       <SOSGiftsSection />

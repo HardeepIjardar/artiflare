@@ -5,10 +5,10 @@ import { getProductById, Product } from '../../data/products';
 
 const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { addToCart } = useCart();
+  const { addToCart, updateQuantity: updateCartQuantity, cartItems, removeFromCart } = useCart();
+  const [showQuantitySelector, setShowQuantitySelector] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [customization, setCustomization] = useState('');
-  const [addedToCart, setAddedToCart] = useState(false);
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   
@@ -16,9 +16,17 @@ const ProductDetailPage: React.FC = () => {
     if (id) {
       const foundProduct = getProductById(id);
       setProduct(foundProduct || null);
+      // Check if product is in cart and show quantity selector if it is
+      if (foundProduct && cartItems.some(item => item.id === foundProduct.id)) {
+        setShowQuantitySelector(true);
+        const cartItem = cartItems.find(item => item.id === foundProduct.id);
+        if (cartItem) {
+          setQuantity(cartItem.quantity);
+        }
+      }
     }
     setLoading(false);
-  }, [id]);
+  }, [id, cartItems]);
 
   const handleAddToCart = () => {
     if (!product) return;
@@ -33,13 +41,26 @@ const ProductDetailPage: React.FC = () => {
       image: product.image
     });
 
-    // Show feedback
-    setAddedToCart(true);
+    setShowQuantitySelector(true);
+  };
+
+  const incrementQuantity = () => {
+    const newQuantity = quantity + 1;
+    setQuantity(newQuantity);
+    updateCartQuantity(product!.id, newQuantity);
+  };
+
+  const decrementQuantity = () => {
+    if (quantity <= 1) {
+      removeFromCart(product!.id);
+      setShowQuantitySelector(false);
+      setQuantity(1);
+      return;
+    }
     
-    // Reset after 3 seconds
-    setTimeout(() => {
-      setAddedToCart(false);
-    }, 3000);
+    const newQuantity = quantity - 1;
+    setQuantity(newQuantity);
+    updateCartQuantity(product!.id, newQuantity);
   };
 
   if (loading) {
@@ -115,28 +136,30 @@ const ProductDetailPage: React.FC = () => {
               </div>
             </div>
             <div className="mt-6 flex space-x-4">
-              <div className="w-24">
-                <label className="block text-sm font-medium text-dark-600">Quantity</label>
-                <select 
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                  value={quantity}
-                  onChange={(e) => setQuantity(parseInt(e.target.value))}
+              {showQuantitySelector ? (
+                <div className="flex items-center space-x-2">
+                  <button
+                    className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center hover:bg-gray-300"
+                    onClick={decrementQuantity}
+                  >
+                    <span>−</span>
+                  </button>
+                  <span className="text-lg font-medium">{quantity}</span>
+                  <button
+                    className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center hover:bg-gray-300"
+                    onClick={incrementQuantity}
+                  >
+                    <span>+</span>
+                  </button>
+                </div>
+              ) : (
+                <button 
+                  className="bg-primary hover:bg-primary-700 text-white font-bold py-2 px-6 rounded transition-colors duration-300 flex-grow"
+                  onClick={handleAddToCart}
                 >
-                  {[1, 2, 3, 4, 5].map((num) => (
-                    <option key={num} value={num}>{num}</option>
-                  ))}
-                </select>
-              </div>
-              <button 
-                className={`${
-                  addedToCart 
-                    ? 'bg-green-600 hover:bg-green-700' 
-                    : 'bg-primary hover:bg-primary-700'
-                } text-white font-bold py-2 px-6 rounded transition-colors duration-300 flex-grow`}
-                onClick={handleAddToCart}
-              >
-                {addedToCart ? 'Added to Cart ✓' : 'Add to Cart'}
-              </button>
+                  Add to Cart
+                </button>
+              )}
             </div>
           </div>
         </div>

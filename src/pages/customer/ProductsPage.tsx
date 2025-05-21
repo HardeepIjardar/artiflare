@@ -4,7 +4,7 @@ import { PRODUCTS } from '../../data/products';
 import { useCart } from '../../contexts/CartContext';
 
 const ProductsPage: React.FC = () => {
-  const { addToCart, updateQuantity: updateCartQuantity, cartItems } = useCart();
+  const { addToCart, updateQuantity: updateCartQuantity, cartItems, removeFromCart } = useCart();
   const [showQuantitySelector, setShowQuantitySelector] = useState<Record<string, boolean>>({});
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   
@@ -37,7 +37,16 @@ const ProductsPage: React.FC = () => {
   };
 
   const decrementQuantity = (productId: string) => {
-    const newQuantity = Math.max(1, (quantities[productId] || 1) - 1);
+    const currentQuantity = quantities[productId] || 1;
+    if (currentQuantity <= 1) {
+      // Remove item from cart when quantity would be 0
+      removeFromCart(productId);
+      setShowQuantitySelector(prev => ({ ...prev, [productId]: false }));
+      setQuantities(prev => ({ ...prev, [productId]: 1 }));
+      return;
+    }
+    
+    const newQuantity = currentQuantity - 1;
     setQuantities(prev => ({ ...prev, [productId]: newQuantity }));
     
     // Directly update cart quantity

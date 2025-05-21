@@ -74,7 +74,13 @@ const CartPage: React.FC = () => {
                       <div className="flex items-center space-x-2">
                         <button 
                           className="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center"
-                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                          onClick={() => {
+                            if (item.quantity <= 1) {
+                              removeFromCart(item.id);
+                            } else {
+                              updateQuantity(item.id, item.quantity - 1);
+                            }
+                          }}
                         >
                           <span>-</span>
                         </button>

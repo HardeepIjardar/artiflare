@@ -5,8 +5,9 @@ import { useCart } from '../../contexts/CartContext';
 
 const OccasionDetailPage: React.FC = () => {
   const { occasion } = useParams<{ occasion: string }>();
-  const { addToCart } = useCart();
-  const [addedProducts, setAddedProducts] = useState<Record<string, boolean>>({});
+  const { addToCart, updateQuantity: updateCartQuantity, cartItems, removeFromCart } = useCart();
+  const [showQuantitySelector, setShowQuantitySelector] = useState<Record<string, boolean>>({});
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
   
   // Early return with a loading state if occasion is undefined
   if (!occasion) {
@@ -21,11 +22,11 @@ const OccasionDetailPage: React.FC = () => {
 
   const occasionProducts = getProductsByOccasion(occasion);
   
-  const handleAddToCart = (productId: string) => {
+  const handleAddToCartClick = (productId: string) => {
     const product = occasionProducts.find(p => p.id === productId);
     if (!product) return;
     
-    // Add to cart with quantity 1
+    // First add 1 item to cart immediately
     addToCart({
       id: product.id,
       name: product.name,
@@ -35,13 +36,35 @@ const OccasionDetailPage: React.FC = () => {
       image: product.image
     });
     
-    // Show added feedback
-    setAddedProducts(prev => ({ ...prev, [productId]: true }));
+    // Show quantity selector for adjusting
+    setShowQuantitySelector(prev => ({ ...prev, [productId]: true }));
+    // Initialize quantity to 1
+    setQuantities(prev => ({ ...prev, [productId]: 1 }));
+  };
+
+  const incrementQuantity = (productId: string) => {
+    const newQuantity = (quantities[productId] || 1) + 1;
+    setQuantities(prev => ({ ...prev, [productId]: newQuantity }));
     
-    // Reset after 2 seconds
-    setTimeout(() => {
-      setAddedProducts(prev => ({ ...prev, [productId]: false }));
-    }, 2000);
+    // Directly update cart quantity
+    updateCartQuantity(productId, newQuantity);
+  };
+
+  const decrementQuantity = (productId: string) => {
+    const currentQuantity = quantities[productId] || 1;
+    if (currentQuantity <= 1) {
+      // Remove item from cart when quantity would be 0
+      removeFromCart(productId);
+      setShowQuantitySelector(prev => ({ ...prev, [productId]: false }));
+      setQuantities(prev => ({ ...prev, [productId]: 1 }));
+      return;
+    }
+    
+    const newQuantity = currentQuantity - 1;
+    setQuantities(prev => ({ ...prev, [productId]: newQuantity }));
+    
+    // Directly update cart quantity
+    updateCartQuantity(productId, newQuantity);
   };
   
   return (
@@ -59,34 +82,53 @@ const OccasionDetailPage: React.FC = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {occasionProducts.map(product => (
-            <div key={product.id} className="bg-white rounded-lg shadow p-6">
-              <Link to={`/products/${product.id}`}>
-                <div className="h-40 rounded-md mb-4 overflow-hidden">
-                  <img 
-                    src={product.image} 
-                    alt={product.name}
-                    className="w-full h-full object-cover"
-                  />
+          {occasionProducts.map(product => {
+            const inCart = cartItems.some(item => item.id === product.id);
+            
+            return (
+              <div key={product.id} className="bg-white rounded-lg shadow p-6">
+                <Link to={`/products/${product.id}`}>
+                  <div className="h-40 rounded-md mb-4 overflow-hidden">
+                    <img 
+                      src={product.image} 
+                      alt={product.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <h3 className="font-bold text-dark">{product.name}</h3>
+                  <p className="text-dark-500 text-sm mt-1">by {product.artisan}</p>
+                </Link>
+                <div className="flex justify-between items-center mt-4">
+                  <span className="text-primary font-bold">${product.price.toFixed(2)}</span>
+                  
+                  {inCart && showQuantitySelector[product.id] ? (
+                    <div className="flex items-center space-x-1">
+                      <button
+                        className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center hover:bg-gray-300"
+                        onClick={() => decrementQuantity(product.id)}
+                      >
+                        <span>−</span>
+                      </button>
+                      <span className="mx-1 text-sm">{quantities[product.id] || 1}</span>
+                      <button
+                        className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center hover:bg-gray-300"
+                        onClick={() => incrementQuantity(product.id)}
+                      >
+                        <span>+</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <button 
+                      className="bg-primary hover:bg-primary-700 text-white px-3 py-1 rounded text-sm transition-colors duration-300"
+                      onClick={() => handleAddToCartClick(product.id)}
+                    >
+                      Add to Cart
+                    </button>
+                  )}
                 </div>
-                <h3 className="font-bold text-dark">{product.name}</h3>
-                <p className="text-dark-500 text-sm mt-1">by {product.artisan}</p>
-              </Link>
-              <div className="flex justify-between items-center mt-4">
-                <span className="text-primary font-bold">${product.price.toFixed(2)}</span>
-                <button 
-                  className={`${
-                    addedProducts[product.id] 
-                      ? 'bg-green-600 hover:bg-green-700' 
-                      : 'bg-primary hover:bg-primary-700'
-                  } text-white px-3 py-1 rounded text-sm transition-colors duration-300`}
-                  onClick={() => handleAddToCart(product.id)}
-                >
-                  {addedProducts[product.id] ? 'Added ✓' : 'Add to Cart'}
-                </button>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
