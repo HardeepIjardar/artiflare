@@ -38,12 +38,9 @@ const AddProductForm: React.FC<AddProductFormProps> = ({ onSuccess, onCancel }) 
     if (!files) return;
 
     // TODO: Implement image upload to Firebase Storage
-    // For now, we'll just use placeholder URLs
-    const imageUrls = Array.from(files).map(() => 'https://via.placeholder.com/300');
-    setFormData(prev => ({
-      ...prev,
-      images: [...prev.images, ...imageUrls]
-    }));
+    // Remove placeholder URLs, only add uploaded image URLs
+    // You should implement actual upload logic here, e.g. using uploadMultipleImages
+    // For now, do nothing or show an error if not implemented
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -262,6 +259,19 @@ const AddProductForm: React.FC<AddProductFormProps> = ({ onSuccess, onCancel }) 
           <label htmlFor="images" className="block text-sm font-medium text-dark-700">
             Product Images
           </label>
+          {formData.images.length > 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              {[...formData.images].reverse().map((image, index) => (
+                <div key={index} className="relative group">
+                  <img
+                    src={image}
+                    alt={`Product image ${index + 1}`}
+                    className="w-full h-32 object-cover rounded-md"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
           <input
             type="file"
             id="images"

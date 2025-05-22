@@ -46,6 +46,9 @@ import OccasionsPage from './pages/customer/OccasionsPage';
 import OccasionDetailPage from './pages/customer/OccasionDetailPage';
 import HowItWorksPage from './pages/customer/HowItWorksPage';
 
+// Add new components
+import AddProduct from './components/artisan/AddProduct';
+
 // Routes component that uses the contexts
 function RoutesWithAuth() {
   const { currentUser } = useAuth();
@@ -127,6 +130,7 @@ function RoutesWithAuth() {
         <Route path="/artisan" element={<ArtisanLayout />}>
           <Route index element={<ArtisanDashboard />} />
           <Route path="products" element={<ArtisanProducts />} />
+          <Route path="products/new" element={<AddProduct />} />
           <Route path="orders" element={<ArtisanOrders />} />
           <Route path="earnings" element={<ArtisanEarnings />} />
           <Route path="settings" element={<ArtisanSettings />} />

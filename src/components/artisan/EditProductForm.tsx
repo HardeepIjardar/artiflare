@@ -26,7 +26,14 @@ const EditProductForm: React.FC<EditProductFormProps> = ({ product, onSuccess, o
     occasion: product.occasion || '',
     tags: product.tags.join(', ')
   });
-  const [images, setImages] = useState<string[]>(product.images);
+  // Filter out placeholder images from initial images
+  const placeholderPatterns = [
+    'placehold.co',
+    'placeholder.com',
+    '/placeholder-product.jpg'
+  ];
+  const filterPlaceholders = (imgs: string[]) => imgs.filter(img => !placeholderPatterns.some(pattern => img.includes(pattern)));
+  const [images, setImages] = useState<string[]>(filterPlaceholders(product.images));
   const [uploadingImages, setUploadingImages] = useState(false);
   const [deletingImages, setDeletingImages] = useState<string[]>([]);
 
@@ -306,7 +313,7 @@ const EditProductForm: React.FC<EditProductFormProps> = ({ product, onSuccess, o
               Product Images
             </label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              {images.map((image, index) => (
+              {[...images].reverse().map((image, index) => (
                 <div key={index} className="relative group">
                   <img
                     src={image}

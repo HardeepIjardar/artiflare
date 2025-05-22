@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { createProduct } from '../../services/firestore';
+import { uploadMultipleImages } from '../../services/storage';
 
 const AddProduct: React.FC = () => {
   const navigate = useNavigate();
@@ -22,7 +23,7 @@ const AddProduct: React.FC = () => {
     tags: '',
     materials: '',
     occasion: '',
-    // Images would be handled through a file upload component
+    images: [] as string[]
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -62,11 +63,7 @@ const AddProduct: React.FC = () => {
         tags: form.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
         materials: form.materials.split(',').map(material => material.trim()).filter(material => material),
         occasion: form.occasion || undefined,
-        // For this example, we'll use placeholder images
-        images: [
-          'https://placehold.co/600x400?text=Product+Image',
-          'https://placehold.co/600x400?text=Product+Image+2'
-        ],
+        images: form.images,
         attributes: {
           // Additional product attributes
         }
@@ -90,7 +87,8 @@ const AddProduct: React.FC = () => {
           isCustomizable: false,
           tags: '',
           materials: '',
-          occasion: ''
+          occasion: '',
+          images: []
         });
       }
     } catch (err: any) {
@@ -98,6 +96,29 @@ const AddProduct: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || !currentUser) return;
+
+    try {
+      const basePath = `products/${currentUser.uid}/images`;
+      const newImageUrls = await uploadMultipleImages(Array.from(files), basePath);
+      setForm(prev => ({
+        ...prev,
+        images: [...prev.images, ...newImageUrls]
+      }));
+    } catch (err) {
+      setError('Failed to upload images');
+    }
+  };
+
+  const handleRemoveImage = async (index: number) => {
+    setForm(prev => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index)
+    }));
   };
 
   return (
@@ -308,11 +329,48 @@ const AddProduct: React.FC = () => {
           </div>
         </div>
         
-        {/* Image upload section would go here */}
-        <div className="border border-dashed border-gray-300 rounded-md p-6 text-center">
-          <p className="text-gray-500">
-            Image uploading functionality would be implemented here
-          </p>
+        {/* Image upload section */}
+        <div className="col-span-2">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Product Images
+          </label>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            {form.images.map((image, index) => (
+              <div key={index} className="relative group">
+                <img
+                  src={image}
+                  alt={`Product image ${index + 1}`}
+                  className="w-full h-32 object-cover rounded-md"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveImage(index)}
+                  className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Add More Images
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleImageUpload}
+              className="block w-full text-sm text-gray-500
+                file:mr-4 file:py-2 file:px-4
+                file:rounded-md file:border-0
+                file:text-sm file:font-semibold
+                file:bg-primary-50 file:text-primary
+                hover:file:bg-primary-100"
+            />
+          </div>
         </div>
         
         <div>
