@@ -173,4 +173,14 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 For questions or support, please contact [hardeepijardar@gmail.com](mailto:hardeepijardar@gmail.com) or open an issue on GitHub.
 
+## Product Card Consistency
+
+All product listings across the project now use a reusable `ProductCard` component (`src/components/ProductCard.tsx`).
+
+- The product card displays the product image, name, and the artisan's shop/company name (after 'by') below the product name.
+- It includes an Add to Cart button and quantity selector.
+- To use the product card, import and render `<ProductCard />` with the required props (see the component for details).
+
+This ensures a consistent look and feel for all product displays throughout the application.
+
 ---

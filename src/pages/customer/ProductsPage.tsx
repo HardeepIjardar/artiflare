@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
-import { getProducts, Product } from '../../services/firestore';
+import { getProducts, getUserData, Product } from '../../services/firestore';
+import ProductCard from '../../components/ProductCard';
 
 const ProductsPage: React.FC = () => {
   const { addToCart, updateQuantity: updateCartQuantity, cartItems, removeFromCart } = useCart();
@@ -10,15 +11,26 @@ const ProductsPage: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [artisanNames, setArtisanNames] = useState<{ [key: string]: string }>({});
   
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchProductsAndArtisans = async () => {
       try {
         const { products, error } = await getProducts();
         if (error) {
           setError(error);
         } else {
           setProducts(products);
+          // Fetch artisan names
+          const uniqueArtisanIds = Array.from(new Set(products.map(p => p.artisanId)));
+          const namesMap: { [key: string]: string } = {};
+          await Promise.all(uniqueArtisanIds.map(async (artisanId) => {
+            const userData = await getUserData(artisanId);
+            if (userData) {
+              namesMap[artisanId] = userData.companyName || userData.displayName || 'Artisan';
+            }
+          }));
+          setArtisanNames(namesMap);
         }
       } catch (err) {
         setError('Failed to fetch products');
@@ -26,8 +38,7 @@ const ProductsPage: React.FC = () => {
         setLoading(false);
       }
     };
-
-    fetchProducts();
+    fetchProductsAndArtisans();
   }, []);
   
   const handleAddToCartClick = (productId: string) => {
@@ -97,53 +108,19 @@ const ProductsPage: React.FC = () => {
       <h1 className="text-2xl font-bold text-dark mb-6">All Products</h1>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {products.map(product => {
-          const inCart = cartItems.some(item => item.id === product.id);
-          
-          return (
-            <div key={product.id} className="bg-white rounded-lg shadow p-6">
-              <Link to={`/products/${product.id}`}>
-                <div className="h-40 rounded-md mb-4 overflow-hidden">
-                  <img 
-                    src={product.images && product.images.length > 0 ? product.images[0] : '/placeholder-product.jpg'} 
-                    alt={product.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <h3 className="font-bold text-dark">{product.name}</h3>
-                <p className="text-dark-500 text-sm mt-1">by {product.artisanId}</p>
-              </Link>
-              <div className="flex justify-between items-center mt-4">
-                <span className="text-primary font-bold">${product.price.toFixed(2)}</span>
-                
-                {!showQuantitySelector[product.id] ? (
-                  <button
-                    onClick={() => handleAddToCartClick(product.id)}
-                    className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-700"
-                  >
-                    Add to Cart
-                  </button>
-                ) : (
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => decrementQuantity(product.id)}
-                      className="bg-gray-200 text-dark px-2 py-1 rounded hover:bg-gray-300"
-                    >
-                      -
-                    </button>
-                    <span className="text-dark">{quantities[product.id] || 1}</span>
-                    <button
-                      onClick={() => incrementQuantity(product.id)}
-                      className="bg-gray-200 text-dark px-2 py-1 rounded hover:bg-gray-300"
-                    >
-                      +
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
+        {products.map(product => (
+          <ProductCard
+            key={product.id}
+            product={product}
+            artisanName={artisanNames[product.artisanId] || 'Artisan'}
+            inCart={cartItems.some(item => item.id === product.id)}
+            quantity={quantities[product.id] || 1}
+            showQuantitySelector={!!showQuantitySelector[product.id]}
+            onAddToCart={handleAddToCartClick}
+            onIncrement={incrementQuantity}
+            onDecrement={decrementQuantity}
+          />
+        ))}
       </div>
     </div>
   );

@@ -1,12 +1,29 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { getUserData } from '../../services/firestore';
 
 const CartPage: React.FC = () => {
   const { cartItems, removeFromCart, updateQuantity, cartTotal } = useCart();
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const [artisanNames, setArtisanNames] = useState<{ [key: string]: string }>({});
+
+  useEffect(() => {
+    const fetchArtisanNames = async () => {
+      const uniqueArtisanIds = Array.from(new Set(cartItems.map(item => item.artisan)));
+      const namesMap: { [key: string]: string } = {};
+      await Promise.all(uniqueArtisanIds.map(async (artisanId) => {
+        const userData = await getUserData(artisanId);
+        if (userData) {
+          namesMap[artisanId] = userData.companyName || userData.displayName || 'Artisan';
+        }
+      }));
+      setArtisanNames(namesMap);
+    };
+    if (cartItems.length > 0) fetchArtisanNames();
+  }, [cartItems]);
 
   const shippingCost = 5.99;
   const tax = cartTotal * 0.08; // 8% tax rate
@@ -62,7 +79,7 @@ const CartPage: React.FC = () => {
                   </div>
                   <div className="ml-4 flex-grow">
                     <h3 className="font-bold text-dark">{item.name}</h3>
-                    <p className="text-dark-500 text-sm">by {item.artisan}</p>
+                    <p className="text-dark-500 text-sm">by {artisanNames[item.artisan] || 'Artisan'}</p>
                     {item.customization && (
                       <div className="flex mt-2">
                         <p className="text-dark-600 text-sm">

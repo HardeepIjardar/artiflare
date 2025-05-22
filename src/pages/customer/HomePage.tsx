@@ -1,6 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FaBirthdayCake, FaWineGlassAlt, FaHeart, FaSeedling } from 'react-icons/fa';
+import { getProducts, Product } from '../../services/firestore';
+import { getUserData } from '../../services/firestore';
+import { useCart } from '../../contexts/CartContext';
+import ProductCard from '../../components/ProductCard';
 
 // Hero Section with Search bar
 const HeroSection = () => (
@@ -167,11 +171,112 @@ const FeaturedArtisansSection = () => (
 
 // HomePage Component
 const HomePage: React.FC = () => {
+  const { addToCart, updateQuantity: updateCartQuantity, cartItems, removeFromCart } = useCart();
+  const [showQuantitySelector, setShowQuantitySelector] = useState<Record<string, boolean>>({});
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [artisanNames, setArtisanNames] = useState<{ [key: string]: string }>({});
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const { products, error } = await getProducts();
+        if (error) {
+          setError(error);
+        } else {
+          setProducts(products);
+          // Fetch artisan names
+          const uniqueArtisanIds = Array.from(new Set(products.map(p => p.artisanId)));
+          const namesMap: { [key: string]: string } = {};
+          await Promise.all(uniqueArtisanIds.map(async (artisanId) => {
+            const userData = await getUserData(artisanId);
+            if (userData) {
+              namesMap[artisanId] = userData.companyName || userData.displayName || 'Artisan';
+            }
+          }));
+          setArtisanNames(namesMap);
+        }
+      } catch (err) {
+        setError('Failed to fetch products');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProducts();
+  }, []);
+
+  const handleAddToCartClick = (productId: string) => {
+    const product = products.find(p => p.id === productId);
+    if (!product) return;
+    addToCart({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      quantity: 1,
+      artisan: product.artisanId,
+      image: product.images[0]
+    });
+    setShowQuantitySelector(prev => ({ ...prev, [productId]: true }));
+    setQuantities(prev => ({ ...prev, [productId]: 1 }));
+  };
+
+  const incrementQuantity = (productId: string) => {
+    const newQuantity = (quantities[productId] || 1) + 1;
+    setQuantities(prev => ({ ...prev, [productId]: newQuantity }));
+    updateCartQuantity(productId, newQuantity);
+  };
+
+  const decrementQuantity = (productId: string) => {
+    const currentQuantity = quantities[productId] || 1;
+    if (currentQuantity <= 1) {
+      removeFromCart(productId);
+      setShowQuantitySelector(prev => ({ ...prev, [productId]: false }));
+      setQuantities(prev => {
+        const newQuantities = { ...prev };
+        delete newQuantities[productId];
+        return newQuantities;
+      });
+    } else {
+      const newQuantity = currentQuantity - 1;
+      setQuantities(prev => ({ ...prev, [productId]: newQuantity }));
+      updateCartQuantity(productId, newQuantity);
+    }
+  };
+
   return (
     <div>
       <HeroSection />
       <OccasionsSection />
       <SOSGiftsSection />
+      {/* All Products Section */}
+      <div className="px-4 sm:px-6 lg:px-8 mt-12">
+        <div className="max-w-7xl mx-auto">
+          <h2 className="text-xl sm:text-2xl font-bold text-dark mb-6">All Products</h2>
+          {loading ? (
+            <div className="text-center">Loading products...</div>
+          ) : error ? (
+            <div className="text-center text-red-500">{error}</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {products.map(product => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  artisanName={artisanNames[product.artisanId] || 'Artisan'}
+                  inCart={!!cartItems.find(item => item.id === product.id)}
+                  quantity={quantities[product.id] || 1}
+                  showQuantitySelector={!!showQuantitySelector[product.id]}
+                  onAddToCart={handleAddToCartClick}
+                  onIncrement={incrementQuantity}
+                  onDecrement={decrementQuantity}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
       <FeaturedArtisansSection />
     </div>
   );
