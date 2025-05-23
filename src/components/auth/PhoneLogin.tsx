@@ -1,7 +1,58 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, Component } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { clearRecaptchaVerifier } from '../../services/firebase';
-import { User } from 'firebase/auth';
+import { User, RecaptchaVerifier, getAuth } from 'firebase/auth';
+
+// Error Boundary Component
+class PhoneInputErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean, error: Error | null }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Phone Input Error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="rounded-lg border border-red-300 bg-red-50 p-4 my-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">
+                Error in phone number input
+              </h3>
+              <div className="mt-2 text-sm text-red-700">
+                <p>{this.state.error?.message || 'An unexpected error occurred. Please try again.'}</p>
+              </div>
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={() => this.setState({ hasError: false, error: null })}
+                  className="rounded-md bg-red-50 px-2 py-1.5 text-sm font-medium text-red-800 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2"
+                >
+                  Try again
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 // List of countries and dial codes
 const countries = [
@@ -34,6 +85,13 @@ interface PhoneLoginProps {
   setIsLoading?: (loading: boolean) => void;
 }
 
+declare global {
+  interface Window {
+    recaptchaVerifier?: any;
+    recaptchaWidgetId?: any;
+  }
+}
+
 const PhoneLogin: React.FC<PhoneLoginProps> = ({ 
   onSuccess, 
   onError,
@@ -42,40 +100,67 @@ const PhoneLogin: React.FC<PhoneLoginProps> = ({
 }) => {
   const [selectedCountry, setSelectedCountry] = useState(countries[0]);
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [verificationCode, setVerificationCode] = useState('');
   const [confirmationResult, setConfirmationResult] = useState<any>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const { phoneLogin, verifyPhoneCode } = useAuth();
-  const recaptchaId = useRef(`recaptcha-container-${Math.random().toString(36).substr(2, 9)}`);
-  const recaptchaMounted = useRef(false);
+  const auth = getAuth();
+  const recaptchaContainerId = 'recaptcha-container';
 
   useEffect(() => {
-    // Only mount recaptcha if we're not in verification mode
-    if (!isVerifying && !recaptchaMounted.current) {
-      const container = document.getElementById(recaptchaId.current);
-      if (container) {
-        recaptchaMounted.current = true;
-      }
+    // Create a container for reCAPTCHA if it doesn't exist
+    let container = document.getElementById(recaptchaContainerId);
+    if (!container) {
+      container = document.createElement('div');
+      container.id = recaptchaContainerId;
+      container.className = 'flex justify-center my-4';
+      document.getElementById('phone-form')?.appendChild(container);
     }
 
     // Cleanup function
     return () => {
-      if (recaptchaMounted.current) {
-        clearRecaptchaVerifier(recaptchaId.current);
-        recaptchaMounted.current = false;
+      if (window.recaptchaVerifier) {
+        clearRecaptchaVerifier(recaptchaContainerId);
       }
+      container?.remove();
     };
   }, [isVerifying]);
+
+  const validatePhoneNumber = (number: string) => {
+    const cleanedNumber = number.replace(/^0+/, '').replace(/\s+/g, '');
+    if (!cleanedNumber) {
+      throw new Error('Phone number is required');
+    }
+    if (!/^\d+$/.test(cleanedNumber)) {
+      throw new Error('Phone number should contain only digits');
+    }
+    if (cleanedNumber.length < 9 || cleanedNumber.length > 15) {
+      throw new Error('Phone number should be between 9 and 15 digits');
+    }
+    return cleanedNumber;
+  };
+
+  const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setPhoneNumber(value);
+    try {
+      validatePhoneNumber(value);
+      setPhoneError(null);
+    } catch (error: any) {
+      setPhoneError(error.message);
+    }
+  };
 
   const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading?.(true);
     
     try {
-      const cleanedNumber = phoneNumber.replace(/^0+/, '').replace(/\s+/g, '');
+      const cleanedNumber = validatePhoneNumber(phoneNumber);
       const fullPhone = `${selectedCountry.code}${cleanedNumber}`;
       
-      const result = await phoneLogin(fullPhone, recaptchaId.current);
+      const result = await phoneLogin(fullPhone, recaptchaContainerId);
       if (result.error) {
         onError?.(result.error);
       } else {
@@ -84,6 +169,9 @@ const PhoneLogin: React.FC<PhoneLoginProps> = ({
       }
     } catch (error: any) {
       onError?.(error.message || 'An error occurred. Please try again.');
+      if (window.recaptchaVerifier) {
+        clearRecaptchaVerifier(recaptchaContainerId);
+      }
     } finally {
       setIsLoading?.(false);
     }
@@ -109,52 +197,55 @@ const PhoneLogin: React.FC<PhoneLoginProps> = ({
   return (
     <div className="w-full max-w-md mx-auto">
       {!isVerifying ? (
-        <form onSubmit={handleSendCode} className="space-y-6">
-          <div className="transform transition duration-300 ease-in-out hover:translate-y-[-2px]">
-            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-              Phone Number
-            </label>
-            <div className="flex gap-2">
-              <select
-                className="appearance-none relative block w-36 px-4 py-3 border border-gray-300 rounded-lg placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 ease-in-out"
-                value={selectedCountry.code}
-                onChange={e => {
-                  const country = countries.find(c => c.code === e.target.value);
-                  if (country) setSelectedCountry(country);
-                }}
-                disabled={isLoading}
-              >
-                {countries.map(country => (
-                  <option key={country.code} value={country.code}>
-                    {country.name} ({country.code})
-                  </option>
-                ))}
-              </select>
-              <input
-                type="tel"
-                id="phone"
-                value={phoneNumber}
-                onChange={e => setPhoneNumber(e.target.value)}
-                placeholder="Enter phone number"
-                className="appearance-none relative block w-full px-4 py-3 border border-gray-300 rounded-lg placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 ease-in-out"
-                required
-                disabled={isLoading}
-              />
+        <form id="phone-form" onSubmit={handleSendCode} className="space-y-6">
+          <PhoneInputErrorBoundary>
+            <div className="transform transition duration-300 ease-in-out hover:translate-y-[-2px]">
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                Phone Number
+              </label>
+              <div className="flex gap-2">
+                <select
+                  className="appearance-none relative block w-36 px-4 py-3 border border-gray-300 rounded-lg placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 ease-in-out"
+                  value={selectedCountry.code}
+                  onChange={e => {
+                    const country = countries.find(c => c.code === e.target.value);
+                    if (country) setSelectedCountry(country);
+                  }}
+                  disabled={isLoading}
+                >
+                  {countries.map(country => (
+                    <option key={country.code} value={country.code}>
+                      {country.name} ({country.code})
+                    </option>
+                  ))}
+                </select>
+                <div className="flex-1">
+                  <input
+                    type="tel"
+                    id="phone"
+                    value={phoneNumber}
+                    onChange={handlePhoneNumberChange}
+                    placeholder="Enter phone number"
+                    className={`appearance-none relative block w-full px-4 py-3 border ${
+                      phoneError ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-primary'
+                    } rounded-lg placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-300 ease-in-out`}
+                    required
+                    disabled={isLoading}
+                  />
+                  {phoneError && (
+                    <p className="mt-2 text-sm text-red-600">
+                      {phoneError}
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-          
-          <div className="mt-4">
-            <div 
-              id={recaptchaId.current}
-              className="flex justify-center recaptcha-container"
-              style={{ minHeight: '65px' }}
-            ></div>
-          </div>
+          </PhoneInputErrorBoundary>
 
           <button
             type="submit"
             className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-primary hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] hover:shadow-lg disabled:opacity-70 active:translate-y-[1px]"
-            disabled={isLoading}
+            disabled={isLoading || !!phoneError}
           >
             {isLoading ? (
               <span className="flex items-center">
