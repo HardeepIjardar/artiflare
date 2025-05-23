@@ -119,7 +119,7 @@ const loginWithFacebook = async () => {
 // Phone authentication
 let recaptchaVerifiers: { [key: string]: RecaptchaVerifier } = {};
 
-const setupRecaptcha = async (containerId: string) => {
+export const setupRecaptcha = async (containerId: string) => {
   const auth = getAuth();
   
   // If there's an existing verifier for this container, clean it up first
@@ -183,7 +183,7 @@ const setupRecaptcha = async (containerId: string) => {
   }
 };
 
-const clearRecaptchaVerifier = async (containerId: string) => {
+export const clearRecaptchaVerifier = async (containerId: string) => {
   if (recaptchaVerifiers[containerId]) {
     try {
       await recaptchaVerifiers[containerId].clear();
@@ -208,42 +208,32 @@ const loginWithPhoneNumber = async (phoneNumber: string, containerId: string) =>
   try {
     const auth = getAuth();
     
-    // Always clear existing verifier first
-    await clearRecaptchaVerifier(containerId);
-    
-    // Create and render a new reCAPTCHA verifier
-    const verifier = new RecaptchaVerifier(containerId, {
-      size: 'normal',
-      callback: (response: string) => {
-        console.log('reCAPTCHA solved successfully');
-      },
-      'expired-callback': () => {
-        console.log('reCAPTCHA expired');
-        clearRecaptchaVerifier(containerId);
-      }
-    }, auth);
-
-    // Explicitly render the reCAPTCHA
-    await verifier.render();
-    
-    // Store the verifier reference
-    recaptchaVerifiers[containerId] = verifier;
-    window.recaptchaVerifier = verifier;
-
-    // Wait for reCAPTCHA verification
-    await new Promise((resolve) => {
-      const checkRecaptcha = () => {
-        if (window.grecaptcha && window.grecaptcha.getResponse()) {
-          resolve(true);
-        } else {
-          setTimeout(checkRecaptcha, 100);
+    // Use the existing verifier if available, otherwise create a new one
+    let verifier = recaptchaVerifiers[containerId];
+    if (!verifier) {
+      verifier = new RecaptchaVerifier(containerId, {
+        size: 'normal',
+        callback: (response: string) => {
+          console.log('reCAPTCHA solved successfully');
+        },
+        'expired-callback': () => {
+          console.log('reCAPTCHA expired');
+          clearRecaptchaVerifier(containerId);
         }
-      };
-      checkRecaptcha();
-    });
+      }, auth);
+
+      // Store the verifier reference
+      recaptchaVerifiers[containerId] = verifier;
+      window.recaptchaVerifier = verifier;
+
+      // Render the reCAPTCHA if it hasn't been rendered yet
+      await verifier.render();
+    }
 
     // Proceed with phone number verification
+    console.log('Sending verification code to:', phoneNumber);
     const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, verifier);
+    console.log('Verification code sent successfully');
 
     return { 
       confirmationResult, 
@@ -251,10 +241,6 @@ const loginWithPhoneNumber = async (phoneNumber: string, containerId: string) =>
     };
   } catch (error: any) {
     console.error('Phone login error:', error);
-    
-    // Clean up on error
-    await clearRecaptchaVerifier(containerId);
-
     return { 
       confirmationResult: null, 
       error: error.message || 'Failed to send verification code. Please try again.' 
@@ -294,9 +280,8 @@ const subscribeToAuthChanges = (callback: (user: User | null) => void) => {
   return onAuthStateChanged(auth, callback);
 };
 
-// Export everything needed
+// Export all the functions
 export {
-  app,
   auth,
   db,
   storage,
@@ -304,15 +289,14 @@ export {
   googleProvider,
   facebookProvider,
   phoneProvider,
-  registerWithEmailAndPassword,
-  loginWithEmailAndPassword,
-  loginWithGoogle,
-  loginWithFacebook,
+  retryOperation,
   loginWithPhoneNumber,
   verifyPhoneCode,
-  setupRecaptcha,
-  logoutUser,
-  resetPassword,
   subscribeToAuthChanges,
-  clearRecaptchaVerifier
+  loginWithEmailAndPassword,
+  registerWithEmailAndPassword,
+  loginWithGoogle,
+  loginWithFacebook,
+  logoutUser,
+  resetPassword
 }; 

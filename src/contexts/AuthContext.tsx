@@ -46,13 +46,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Subscribe to auth state changes
-    const unsubscribe = subscribeToAuthChanges((user) => {
+    const unsubscribe = subscribeToAuthChanges((user: User | null) => {
       setCurrentUser(user);
       setIsLoading(false);
     });
 
     // Cleanup subscription on unmount
-    return unsubscribe;
+    return () => unsubscribe();
   }, []);
 
   const updateCurrentUser = (user: User | null) => {

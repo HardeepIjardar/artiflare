@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, Component } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { clearRecaptchaVerifier } from '../../services/firebase';
+import { clearRecaptchaVerifier, setupRecaptcha } from '../../services/firebase';
 import { User, RecaptchaVerifier, getAuth } from 'firebase/auth';
 
 // Error Boundary Component
@@ -104,28 +104,45 @@ const PhoneLogin: React.FC<PhoneLoginProps> = ({
   const [verificationCode, setVerificationCode] = useState('');
   const [confirmationResult, setConfirmationResult] = useState<any>(null);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [recaptchaInitialized, setRecaptchaInitialized] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [recaptchaError, setRecaptchaError] = useState<string | null>(null);
   const { phoneLogin, verifyPhoneCode } = useAuth();
   const auth = getAuth();
   const recaptchaContainerId = 'recaptcha-container';
 
   useEffect(() => {
-    // Create a container for reCAPTCHA if it doesn't exist
-    let container = document.getElementById(recaptchaContainerId);
-    if (!container) {
-      container = document.createElement('div');
-      container.id = recaptchaContainerId;
-      container.className = 'flex justify-center my-4';
-      document.getElementById('phone-form')?.appendChild(container);
-    }
-
     // Cleanup function
     return () => {
       if (window.recaptchaVerifier) {
         clearRecaptchaVerifier(recaptchaContainerId);
       }
-      container?.remove();
     };
-  }, [isVerifying]);
+  }, []);
+
+  const handlePhoneInputFocus = async () => {
+    if (!recaptchaInitialized) {
+      try {
+        setRecaptchaError(null);
+        // Create a container for reCAPTCHA if it doesn't exist
+        let container = document.getElementById(recaptchaContainerId);
+        if (!container) {
+          container = document.createElement('div');
+          container.id = recaptchaContainerId;
+          container.className = 'flex justify-center my-4';
+          document.getElementById('phone-form')?.appendChild(container);
+        }
+
+        // Initialize reCAPTCHA
+        await setupRecaptcha(recaptchaContainerId);
+        setRecaptchaInitialized(true);
+      } catch (error: any) {
+        console.error('Error initializing reCAPTCHA:', error);
+        setRecaptchaError(error.message);
+        onError?.('Failed to initialize phone verification. Please ensure you are using an authorized domain.');
+      }
+    }
+  };
 
   const validatePhoneNumber = (number: string) => {
     const cleanedNumber = number.replace(/^0+/, '').replace(/\s+/g, '');
@@ -155,6 +172,8 @@ const PhoneLogin: React.FC<PhoneLoginProps> = ({
   const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading?.(true);
+    setCodeSent(false);
+    setRecaptchaError(null);
     
     try {
       const cleanedNumber = validatePhoneNumber(phoneNumber);
@@ -162,15 +181,32 @@ const PhoneLogin: React.FC<PhoneLoginProps> = ({
       
       const result = await phoneLogin(fullPhone, recaptchaContainerId);
       if (result.error) {
-        onError?.(result.error);
+        if (result.error.includes('auth/invalid-app-credential')) {
+          setRecaptchaError('Domain not authorized. Please contact support or try again later.');
+          onError?.('Domain not authorized for phone authentication. Please ensure you are using an authorized domain.');
+        } else {
+          onError?.(result.error);
+        }
       } else {
         setConfirmationResult(result.confirmationResult);
+        setCodeSent(true);
         setIsVerifying(true);
       }
     } catch (error: any) {
-      onError?.(error.message || 'An error occurred. Please try again.');
+      console.error('Send code error:', error);
+      const errorMessage = error.message || 'An error occurred. Please try again.';
+      onError?.(errorMessage);
+      
+      // Handle specific error cases
+      if (error.code === 'auth/invalid-app-credential') {
+        setRecaptchaError('Domain not authorized. Please contact support or try again later.');
+      } else if (error.code === 'auth/captcha-check-failed') {
+        setRecaptchaError('reCAPTCHA verification failed. Please try again.');
+      }
+      
       if (window.recaptchaVerifier) {
         clearRecaptchaVerifier(recaptchaContainerId);
+        setRecaptchaInitialized(false);
       }
     } finally {
       setIsLoading?.(false);
@@ -225,6 +261,7 @@ const PhoneLogin: React.FC<PhoneLoginProps> = ({
                     id="phone"
                     value={phoneNumber}
                     onChange={handlePhoneNumberChange}
+                    onFocus={handlePhoneInputFocus}
                     placeholder="Enter phone number"
                     className={`appearance-none relative block w-full px-4 py-3 border ${
                       phoneError ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-primary'
@@ -242,10 +279,30 @@ const PhoneLogin: React.FC<PhoneLoginProps> = ({
             </div>
           </PhoneInputErrorBoundary>
 
+          {recaptchaError && (
+            <div className="rounded-md bg-red-50 p-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">
+                    reCAPTCHA Error
+                  </h3>
+                  <div className="mt-2 text-sm text-red-700">
+                    <p>{recaptchaError}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <button
             type="submit"
             className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-primary hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] hover:shadow-lg disabled:opacity-70 active:translate-y-[1px]"
-            disabled={isLoading || !!phoneError}
+            disabled={isLoading || !!phoneError || !recaptchaInitialized}
           >
             {isLoading ? (
               <span className="flex items-center">
@@ -262,6 +319,23 @@ const PhoneLogin: React.FC<PhoneLoginProps> = ({
         </form>
       ) : (
         <form onSubmit={handleVerifyCode} className="space-y-6">
+          {codeSent && (
+            <div className="rounded-md bg-green-50 p-4 mb-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-green-800">
+                    Verification code sent to {selectedCountry.code}{phoneNumber}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="transform transition duration-300 ease-in-out hover:translate-y-[-2px]">
             <label htmlFor="code" className="block text-sm font-medium text-gray-700 mb-1">
               Verification Code
@@ -277,13 +351,14 @@ const PhoneLogin: React.FC<PhoneLoginProps> = ({
               disabled={isLoading}
               maxLength={6}
               pattern="[0-9]{6}"
+              autoFocus
             />
           </div>
 
           <button
             type="submit"
             className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-primary hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all duration-300 ease-in-out transform hover:translate-y-[-2px] hover:shadow-lg disabled:opacity-70 active:translate-y-[1px]"
-            disabled={isLoading}
+            disabled={isLoading || verificationCode.length !== 6}
           >
             {isLoading ? (
               <span className="flex items-center">
@@ -296,6 +371,18 @@ const PhoneLogin: React.FC<PhoneLoginProps> = ({
             ) : (
               "Verify Code"
             )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setIsVerifying(false);
+              setCodeSent(false);
+              setVerificationCode('');
+            }}
+            className="w-full text-center text-sm text-primary hover:text-primary-700 transition-colors duration-300"
+          >
+            Try a different phone number
           </button>
         </form>
       )}
