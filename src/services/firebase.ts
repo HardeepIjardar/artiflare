@@ -35,7 +35,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyD0iSHDuOcPrm-yEaNm9zFxGma1gJENa2k",
   authDomain: "artiflare-001-35be5.firebaseapp.com",
   projectId: "artiflare-001-35be5",
-  storageBucket: "artiflare-001-35be5.firebasestorage.app",
+  storageBucket: "artiflare-001-35be5.appspot.com",
   messagingSenderId: "115283598563",
   appId: "1:115283598563:web:ffda51f61ebf8088e279d6",
   measurementId: "G-2V6V0S1P77"
@@ -44,6 +44,7 @@ const firebaseConfig = {
 // Initialize Firebase and services
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+auth.useDeviceLanguage(); // Set language to device default for SMS
 const db = getFirestore(app);
 const storage = getStorage(app);
 const analytics = getAnalytics(app);
@@ -53,19 +54,21 @@ const googleProvider = new GoogleAuthProvider();
 const facebookProvider = new FacebookAuthProvider();
 const phoneProvider = new PhoneAuthProvider(auth);
 
-// Add retry utility function at the top of the file
-const retryOperation = async (operation: () => Promise<any>, maxAttempts = 3, delay = 2000) => {
+// Utility function for retrying operations
+const retryOperation = async (operation: () => Promise<any>, maxAttempts = 3, delay = 1000) => {
+  let lastError;
+  
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       return await operation();
-    } catch (error: any) {
-      if (attempt === maxAttempts || !error.message?.includes('network')) {
-        throw error;
-      }
-      console.log(`Attempt ${attempt} failed, retrying in ${delay}ms...`);
+    } catch (error) {
+      lastError = error;
+      if (attempt === maxAttempts) break;
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
+  
+  throw lastError;
 };
 
 // Authentication functions
@@ -119,6 +122,21 @@ const loginWithFacebook = async () => {
 // Phone authentication
 let recaptchaVerifiers: { [key: string]: RecaptchaVerifier } = {};
 
+const clearRecaptchaVerifier = (containerId: string) => {
+  if (recaptchaVerifiers[containerId]) {
+    try {
+      recaptchaVerifiers[containerId].clear();
+      delete recaptchaVerifiers[containerId];
+      const container = document.getElementById(containerId);
+      if (container) {
+        container.innerHTML = '';
+      }
+    } catch (e) {
+      console.warn('Error clearing reCAPTCHA:', e);
+    }
+  }
+};
+
 export const setupRecaptcha = async (containerId: string) => {
   const auth = getAuth();
   
@@ -138,7 +156,7 @@ export const setupRecaptcha = async (containerId: string) => {
     elem.innerHTML = '';
   }
 
-  // Create new reCAPTCHA verifier with normal size
+  // Create new reCAPTCHA verifier with normal size and timeout
   const verifier = new RecaptchaVerifier(containerId, {
     size: 'normal',
     callback: (response: any) => {
@@ -159,13 +177,13 @@ export const setupRecaptcha = async (containerId: string) => {
       }
       // Re-render the reCAPTCHA
       if (recaptchaVerifiers[containerId]) {
-        try {
-          recaptchaVerifiers[containerId].clear();
-          setupRecaptcha(containerId);
-        } catch (e) {
-          console.warn('Error handling reCAPTCHA expiration:', e);
-        }
+        clearRecaptchaVerifier(containerId);
+        setupRecaptcha(containerId);
       }
+    },
+    'error-callback': () => {
+      console.log('reCAPTCHA error');
+      clearRecaptchaVerifier(containerId);
     }
   }, auth);
 
@@ -174,76 +192,101 @@ export const setupRecaptcha = async (containerId: string) => {
   window.recaptchaVerifier = verifier;
 
   try {
-    // Render the reCAPTCHA widget
-    await verifier.render();
+    // Set a timeout for the render operation
+    const renderPromise = verifier.render();
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('reCAPTCHA render timeout')), 30000); // 30 seconds timeout
+    });
+
+    // Race between render and timeout
+    await Promise.race([renderPromise, timeoutPromise]);
     return verifier;
   } catch (error) {
     console.error('Error rendering reCAPTCHA:', error);
+    clearRecaptchaVerifier(containerId);
     throw error;
   }
 };
 
-export const clearRecaptchaVerifier = async (containerId: string) => {
-  if (recaptchaVerifiers[containerId]) {
-    try {
-      await recaptchaVerifiers[containerId].clear();
-      delete recaptchaVerifiers[containerId];
-    } catch (e) {
-      console.warn('Error clearing reCAPTCHA:', e);
-    }
+// Utility function to format phone number
+const formatPhoneNumber = (phoneNumber: string, countryCode: string = '+91'): string => {
+  // Remove any non-digit characters
+  const cleaned = phoneNumber.replace(/\D/g, '');
+  
+  // If the number already includes the country code, return as is
+  if (cleaned.startsWith('91')) {
+    return '+' + cleaned;
   }
   
-  if (window.recaptchaVerifier) {
-    delete window.recaptchaVerifier;
-  }
-
-  // Clean up DOM element
-  const elem = document.getElementById(containerId);
-  if (elem) {
-    elem.innerHTML = '';
-  }
+  // Remove leading zeros
+  const withoutLeadingZeros = cleaned.replace(/^0+/, '');
+  
+  // Add country code if not present
+  return countryCode + withoutLeadingZeros;
 };
 
 const loginWithPhoneNumber = async (phoneNumber: string, containerId: string) => {
   try {
     const auth = getAuth();
     
-    // Use the existing verifier if available, otherwise create a new one
-    let verifier = recaptchaVerifiers[containerId];
-    if (!verifier) {
-      verifier = new RecaptchaVerifier(containerId, {
-        size: 'normal',
-        callback: (response: string) => {
-          console.log('reCAPTCHA solved successfully');
-        },
-        'expired-callback': () => {
-          console.log('reCAPTCHA expired');
-          clearRecaptchaVerifier(containerId);
-        }
-      }, auth);
+    // Format phone number
+    const formattedPhone = formatPhoneNumber(phoneNumber);
+    console.log('Attempting phone authentication for:', formattedPhone);
 
-      // Store the verifier reference
-      recaptchaVerifiers[containerId] = verifier;
-      window.recaptchaVerifier = verifier;
+    // Clear any existing verifier
+    clearRecaptchaVerifier(containerId);
+    
+    // Create new verifier with normal size for better reliability
+    const verifier = new RecaptchaVerifier(containerId, {
+      size: 'normal',
+      callback: (response: any) => {
+        console.log('reCAPTCHA solved:', response);
+      },
+      'expired-callback': () => {
+        console.log('reCAPTCHA expired');
+        clearRecaptchaVerifier(containerId);
+      }
+    }, auth);
 
-      // Render the reCAPTCHA if it hasn't been rendered yet
-      await verifier.render();
-    }
+    // Store the verifier reference
+    recaptchaVerifiers[containerId] = verifier;
+    
+    // Render the reCAPTCHA first
+    await verifier.render();
+    console.log('reCAPTCHA rendered successfully');
 
-    // Proceed with phone number verification
-    console.log('Sending verification code to:', phoneNumber);
-    const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, verifier);
+    // Then attempt to send the verification code
+    const confirmationResult = await signInWithPhoneNumber(auth, formattedPhone, verifier);
     console.log('Verification code sent successfully');
-
+    
     return { 
       confirmationResult, 
       error: null 
     };
+
   } catch (error: any) {
     console.error('Phone login error:', error);
+    clearRecaptchaVerifier(containerId);
+
+    let errorMessage = 'Failed to send verification code. Please try again.';
+    
+    if (error.code === 'auth/invalid-phone-number') {
+      errorMessage = 'Please enter a valid phone number.';
+    } else if (error.code === 'auth/too-many-requests') {
+      errorMessage = 'Too many attempts. Please try again later.';
+    } else if (error.code === 'auth/operation-not-allowed') {
+      errorMessage = 'Phone authentication is not enabled. Please contact support.';
+    } else if (error.code === 'auth/invalid-app-credential') {
+      errorMessage = 'Please complete the reCAPTCHA verification.';
+    } else if (error.message?.includes('timeout')) {
+      errorMessage = 'The operation timed out. Please check your internet connection and try again.';
+    } else if (error.code === 'auth/network-request-failed') {
+      errorMessage = 'Network error. Please check your internet connection and try again.';
+    }
+
     return { 
       confirmationResult: null, 
-      error: error.message || 'Failed to send verification code. Please try again.' 
+      error: errorMessage
     };
   }
 };
@@ -280,7 +323,7 @@ const subscribeToAuthChanges = (callback: (user: User | null) => void) => {
   return onAuthStateChanged(auth, callback);
 };
 
-// Export all the functions
+// Export all the functions and services
 export {
   auth,
   db,
@@ -292,6 +335,7 @@ export {
   retryOperation,
   loginWithPhoneNumber,
   verifyPhoneCode,
+  clearRecaptchaVerifier,
   subscribeToAuthChanges,
   loginWithEmailAndPassword,
   registerWithEmailAndPassword,

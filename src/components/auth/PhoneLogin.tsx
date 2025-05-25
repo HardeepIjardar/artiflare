@@ -92,6 +92,12 @@ declare global {
   }
 }
 
+interface VerificationResult {
+  confirmationResult?: any;
+  error: string | null;
+  user?: User | null;
+}
+
 const PhoneLogin: React.FC<PhoneLoginProps> = ({ 
   onSuccess, 
   onError,
@@ -110,12 +116,16 @@ const PhoneLogin: React.FC<PhoneLoginProps> = ({
   const { phoneLogin, verifyPhoneCode } = useAuth();
   const auth = getAuth();
   const recaptchaContainerId = 'recaptcha-container';
+  const timeoutRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
     // Cleanup function
     return () => {
       if (window.recaptchaVerifier) {
         clearRecaptchaVerifier(recaptchaContainerId);
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
       }
     };
   }, []);
@@ -124,6 +134,12 @@ const PhoneLogin: React.FC<PhoneLoginProps> = ({
     if (!recaptchaInitialized) {
       try {
         setRecaptchaError(null);
+        
+        // Clear any existing timeout
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+
         // Create a container for reCAPTCHA if it doesn't exist
         let container = document.getElementById(recaptchaContainerId);
         if (!container) {
@@ -133,13 +149,32 @@ const PhoneLogin: React.FC<PhoneLoginProps> = ({
           document.getElementById('phone-form')?.appendChild(container);
         }
 
-        // Initialize reCAPTCHA
-        await setupRecaptcha(recaptchaContainerId);
+        // Set a timeout for reCAPTCHA initialization
+        const initializationPromise = setupRecaptcha(recaptchaContainerId);
+        const timeoutPromise = new Promise((_, reject) => {
+          timeoutRef.current = setTimeout(() => {
+            reject(new Error('reCAPTCHA initialization timed out'));
+          }, 20000); // 20 seconds timeout
+        });
+
+        await Promise.race([initializationPromise, timeoutPromise]);
         setRecaptchaInitialized(true);
+
       } catch (error: any) {
         console.error('Error initializing reCAPTCHA:', error);
         setRecaptchaError(error.message);
-        onError?.('Failed to initialize phone verification. Please ensure you are using an authorized domain.');
+        setRecaptchaInitialized(false);
+        clearRecaptchaVerifier(recaptchaContainerId);
+        
+        if (error.message.includes('timeout')) {
+          onError?.('reCAPTCHA initialization timed out. Please refresh the page and try again.');
+        } else {
+          onError?.('Failed to initialize phone verification. Please ensure you are using an authorized domain.');
+        }
+      } finally {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
       }
     }
   };
@@ -175,11 +210,29 @@ const PhoneLogin: React.FC<PhoneLoginProps> = ({
     setCodeSent(false);
     setRecaptchaError(null);
     
+    // Clear any existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    
     try {
       const cleanedNumber = validatePhoneNumber(phoneNumber);
       const fullPhone = `${selectedCountry.code}${cleanedNumber}`;
       
-      const result = await phoneLogin(fullPhone, recaptchaContainerId);
+      console.log('Sending verification code to:', fullPhone); // Debug log
+      
+      // Set a timeout for the phone verification
+      const verificationPromise = phoneLogin(fullPhone, recaptchaContainerId);
+      const timeoutPromise = new Promise<VerificationResult>((_, reject) => {
+        timeoutRef.current = setTimeout(() => {
+          reject(new Error('Phone verification request timed out'));
+        }, 60000); // 60 seconds timeout
+      });
+
+      const result = await Promise.race([verificationPromise, timeoutPromise]) as VerificationResult;
+      
+      console.log('Verification result:', result); // Debug log
+      
       if (result.error) {
         if (result.error.includes('auth/invalid-app-credential')) {
           setRecaptchaError('Domain not authorized. Please contact support or try again later.');
@@ -187,46 +240,93 @@ const PhoneLogin: React.FC<PhoneLoginProps> = ({
         } else {
           onError?.(result.error);
         }
-      } else {
+        // Reset states on error
+        setIsVerifying(false);
+        setCodeSent(false);
+      } else if (result.confirmationResult) {
+        // Successfully sent verification code
+        console.log('Code sent successfully, updating states'); // Debug log
         setConfirmationResult(result.confirmationResult);
         setCodeSent(true);
         setIsVerifying(true);
+        setRecaptchaError(null);
+        // Clear any existing reCAPTCHA since we don't need it anymore
+        clearRecaptchaVerifier(recaptchaContainerId);
       }
     } catch (error: any) {
       console.error('Send code error:', error);
-      const errorMessage = error.message || 'An error occurred. Please try again.';
-      onError?.(errorMessage);
       
       // Handle specific error cases
-      if (error.code === 'auth/invalid-app-credential') {
+      let errorMessage = 'Failed to send verification code. Please try again.';
+      
+      if (error.message.includes('timeout')) {
+        errorMessage = 'The request timed out. Please check your internet connection and try again.';
+      } else if (error.code === 'auth/invalid-app-credential') {
+        errorMessage = 'Domain not authorized. Please contact support or try again later.';
         setRecaptchaError('Domain not authorized. Please contact support or try again later.');
       } else if (error.code === 'auth/captcha-check-failed') {
+        errorMessage = 'reCAPTCHA verification failed. Please try again.';
         setRecaptchaError('reCAPTCHA verification failed. Please try again.');
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your internet connection and try again.';
+      } else if (error.code === 'auth/invalid-phone-number') {
+        errorMessage = 'Invalid phone number format. Please check the number and try again.';
       }
       
-      if (window.recaptchaVerifier) {
-        clearRecaptchaVerifier(recaptchaContainerId);
-        setRecaptchaInitialized(false);
-      }
+      onError?.(errorMessage);
+      
+      // Reset states on error
+      setIsVerifying(false);
+      setCodeSent(false);
+      
+      // Reset reCAPTCHA if there's an error
+      clearRecaptchaVerifier(recaptchaContainerId);
+      setRecaptchaInitialized(false);
+      
     } finally {
       setIsLoading?.(false);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
     }
   };
 
   const handleVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading?.(true);
+    
+    // Clear any existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    
     try {
-      const result = await verifyPhoneCode(confirmationResult, verificationCode);
+      // Set a timeout for the verification
+      const verificationPromise = verifyPhoneCode(confirmationResult, verificationCode);
+      const timeoutPromise = new Promise<VerificationResult>((_, reject) => {
+        timeoutRef.current = setTimeout(() => {
+          reject(new Error('Code verification timed out'));
+        }, 30000); // 30 seconds timeout
+      });
+
+      const result = await Promise.race([verificationPromise, timeoutPromise]) as VerificationResult;
+      
       if (result.error) {
         onError?.(result.error);
       } else if (result.user) {
         onSuccess?.(result.user);
       }
     } catch (error: any) {
-      onError?.(error.message);
+      let errorMessage = error.message;
+      if (error.message.includes('timeout')) {
+        errorMessage = 'The verification timed out. Please try again.';
+      }
+      onError?.(errorMessage);
     } finally {
       setIsLoading?.(false);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
     }
   };
 
