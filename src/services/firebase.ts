@@ -19,6 +19,16 @@ import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getAnalytics } from 'firebase/analytics';
 
+// Add this at the top of the file, after imports
+
+declare global {
+  interface Window {
+    recaptchaVerifier?: any;
+    recaptchaWidgetId?: any;
+    grecaptcha?: any;
+  }
+}
+
 // Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyD0iSHDuOcPrm-yEaNm9zFxGma1gJENa2k",
@@ -94,30 +104,61 @@ const loginWithFacebook = async () => {
 let recaptchaVerifier: RecaptchaVerifier | null = null;
 
 const setupRecaptcha = (containerId: string) => {
-  if (!recaptchaVerifier) {
-    recaptchaVerifier = new RecaptchaVerifier(containerId, {
-      size: 'invisible',
-      callback: () => {
-        // reCAPTCHA solved, allow phone auth
+  const auth = getAuth();
+  const verifierKey = `recaptchaVerifier_${containerId}`;
+  const widgetKey = `recaptchaWidgetId_${containerId}`;
+  if (!window[verifierKey]) {
+    window[verifierKey] = new RecaptchaVerifier(
+      containerId,
+      {
+        size: 'invisible',
+        callback: () => {
+          // reCAPTCHA solved, allow phone auth
+        },
+        'expired-callback': () => {
+          // Response expired. Ask user to solve reCAPTCHA again.
+        }
       },
-      'expired-callback': () => {
-        // Reset the reCAPTCHA
-        recaptchaVerifier = null;
-      }
-    }, auth);
+      auth
+    );
+    window[verifierKey].render().then((widgetId: string) => {
+      window[widgetKey] = widgetId;
+    });
   }
-  return recaptchaVerifier;
+  return window[verifierKey];
+};
+
+const clearRecaptchaVerifier = (containerId: string) => {
+  const verifierKey = `recaptchaVerifier_${containerId}`;
+  const widgetKey = `recaptchaWidgetId_${containerId}`;
+  if (window[verifierKey]) {
+    window[verifierKey].clear();
+    window[verifierKey] = null;
+    window[widgetKey] = null;
+  }
+  // Remove the widget from the DOM
+  const elem = document.getElementById(containerId);
+  if (elem) elem.innerHTML = '';
 };
 
 const loginWithPhoneNumber = async (phoneNumber: string, containerId: string) => {
   try {
     const verifier = setupRecaptcha(containerId);
+    const auth = getAuth();
     const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, verifier);
     return { 
       confirmationResult, 
       error: null 
     };
   } catch (error: any) {
+    // Reset reCAPTCHA so user can try again
+    if (window[`recaptchaWidgetId_${containerId}`] && window.grecaptcha) {
+      window.grecaptcha.reset(window[`recaptchaWidgetId_${containerId}`]);
+    } else if (window[`recaptchaVerifier_${containerId}`]) {
+      window[`recaptchaVerifier_${containerId}`].render().then((widgetId: string) => {
+        if (window.grecaptcha) window.grecaptcha.reset(widgetId);
+      });
+    }
     return { 
       confirmationResult: null, 
       error: error.message 
@@ -176,5 +217,6 @@ export {
   setupRecaptcha,
   logoutUser,
   resetPassword,
-  subscribeToAuthChanges
+  subscribeToAuthChanges,
+  clearRecaptchaVerifier
 }; 
