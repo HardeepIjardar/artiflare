@@ -56,10 +56,8 @@ const PhoneLogin: React.FC<PhoneLoginProps> = ({
       recaptchaInitialized.current = true;
     }
     return () => {
-      clearRecaptchaVerifier();
+      clearRecaptchaVerifier(recaptchaId.current);
       recaptchaInitialized.current = false;
-      const elem = document.getElementById(recaptchaId.current);
-      if (elem) elem.innerHTML = '';
     };
   }, []);
 

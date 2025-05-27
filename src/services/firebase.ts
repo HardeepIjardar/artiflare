@@ -107,8 +107,8 @@ const setupRecaptcha = (containerId: string) => {
   const auth = getAuth();
   const verifierKey = `recaptchaVerifier_${containerId}`;
   const widgetKey = `recaptchaWidgetId_${containerId}`;
-  if (!window[verifierKey]) {
-    window[verifierKey] = new RecaptchaVerifier(
+  if (!(window as any)[verifierKey]) {
+    (window as any)[verifierKey] = new RecaptchaVerifier(
       containerId,
       {
         size: 'invisible',
@@ -121,20 +121,20 @@ const setupRecaptcha = (containerId: string) => {
       },
       auth
     );
-    window[verifierKey].render().then((widgetId: string) => {
-      window[widgetKey] = widgetId;
+    (window as any)[verifierKey].render().then((widgetId: string) => {
+      (window as any)[widgetKey] = widgetId;
     });
   }
-  return window[verifierKey];
+  return (window as any)[verifierKey];
 };
 
 const clearRecaptchaVerifier = (containerId: string) => {
   const verifierKey = `recaptchaVerifier_${containerId}`;
   const widgetKey = `recaptchaWidgetId_${containerId}`;
-  if (window[verifierKey]) {
-    window[verifierKey].clear();
-    window[verifierKey] = null;
-    window[widgetKey] = null;
+  if ((window as any)[verifierKey]) {
+    (window as any)[verifierKey].clear();
+    (window as any)[verifierKey] = null;
+    (window as any)[widgetKey] = null;
   }
   // Remove the widget from the DOM
   const elem = document.getElementById(containerId);
@@ -152,11 +152,11 @@ const loginWithPhoneNumber = async (phoneNumber: string, containerId: string) =>
     };
   } catch (error: any) {
     // Reset reCAPTCHA so user can try again
-    if (window[`recaptchaWidgetId_${containerId}`] && window.grecaptcha) {
-      window.grecaptcha.reset(window[`recaptchaWidgetId_${containerId}`]);
-    } else if (window[`recaptchaVerifier_${containerId}`]) {
-      window[`recaptchaVerifier_${containerId}`].render().then((widgetId: string) => {
-        if (window.grecaptcha) window.grecaptcha.reset(widgetId);
+    if ((window as any)[`recaptchaWidgetId_${containerId}`] && (window as any).grecaptcha) {
+      (window as any).grecaptcha.reset((window as any)[`recaptchaWidgetId_${containerId}`]);
+    } else if ((window as any)[`recaptchaVerifier_${containerId}`]) {
+      (window as any)[`recaptchaVerifier_${containerId}`].render().then((widgetId: string) => {
+        if ((window as any).grecaptcha) (window as any).grecaptcha.reset(widgetId);
       });
     }
     return { 
