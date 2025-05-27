@@ -10,24 +10,11 @@ import {
   signInWithPopup,
   updateProfile,
   onAuthStateChanged,
-  User,
-  PhoneAuthProvider,
-  signInWithPhoneNumber,
-  RecaptchaVerifier
+  User
 } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getAnalytics } from 'firebase/analytics';
-
-// Add this at the top of the file, after imports
-
-declare global {
-  interface Window {
-    recaptchaVerifier?: any;
-    recaptchaWidgetId?: any;
-    grecaptcha?: any;
-  }
-}
 
 // Firebase configuration
 const firebaseConfig = {
@@ -50,7 +37,6 @@ const analytics = getAnalytics(app);
 // Authentication providers
 const googleProvider = new GoogleAuthProvider();
 const facebookProvider = new FacebookAuthProvider();
-const phoneProvider = new PhoneAuthProvider(auth);
 
 // Authentication functions
 const registerWithEmailAndPassword = async (
@@ -62,7 +48,6 @@ const registerWithEmailAndPassword = async (
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     
-    // Update display name if provided
     if (displayName && user) {
       await updateProfile(user, { displayName });
     }
@@ -94,81 +79,6 @@ const loginWithGoogle = async () => {
 const loginWithFacebook = async () => {
   try {
     const userCredential = await signInWithPopup(auth, facebookProvider);
-    return { user: userCredential.user, error: null };
-  } catch (error: any) {
-    return { user: null, error: error.message };
-  }
-};
-
-// Phone authentication
-let recaptchaVerifier: RecaptchaVerifier | null = null;
-
-const setupRecaptcha = (containerId: string) => {
-  const auth = getAuth();
-  const verifierKey = `recaptchaVerifier_${containerId}`;
-  const widgetKey = `recaptchaWidgetId_${containerId}`;
-  if (!(window as any)[verifierKey]) {
-    (window as any)[verifierKey] = new RecaptchaVerifier(
-      containerId,
-      {
-        size: 'invisible',
-        callback: () => {
-          // reCAPTCHA solved, allow phone auth
-        },
-        'expired-callback': () => {
-          // Response expired. Ask user to solve reCAPTCHA again.
-        }
-      },
-      auth
-    );
-    (window as any)[verifierKey].render().then((widgetId: string) => {
-      (window as any)[widgetKey] = widgetId;
-    });
-  }
-  return (window as any)[verifierKey];
-};
-
-const clearRecaptchaVerifier = (containerId: string) => {
-  const verifierKey = `recaptchaVerifier_${containerId}`;
-  const widgetKey = `recaptchaWidgetId_${containerId}`;
-  if ((window as any)[verifierKey]) {
-    (window as any)[verifierKey].clear();
-    (window as any)[verifierKey] = null;
-    (window as any)[widgetKey] = null;
-  }
-  // Remove the widget from the DOM
-  const elem = document.getElementById(containerId);
-  if (elem) elem.innerHTML = '';
-};
-
-const loginWithPhoneNumber = async (phoneNumber: string, containerId: string) => {
-  try {
-    const verifier = setupRecaptcha(containerId);
-    const auth = getAuth();
-    const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, verifier);
-    return { 
-      confirmationResult, 
-      error: null 
-    };
-  } catch (error: any) {
-    // Reset reCAPTCHA so user can try again
-    if ((window as any)[`recaptchaWidgetId_${containerId}`] && (window as any).grecaptcha) {
-      (window as any).grecaptcha.reset((window as any)[`recaptchaWidgetId_${containerId}`]);
-    } else if ((window as any)[`recaptchaVerifier_${containerId}`]) {
-      (window as any)[`recaptchaVerifier_${containerId}`].render().then((widgetId: string) => {
-        if ((window as any).grecaptcha) (window as any).grecaptcha.reset(widgetId);
-      });
-    }
-    return { 
-      confirmationResult: null, 
-      error: error.message 
-    };
-  }
-};
-
-const verifyPhoneCode = async (confirmationResult: any, code: string) => {
-  try {
-    const userCredential = await confirmationResult.confirm(code);
     return { user: userCredential.user, error: null };
   } catch (error: any) {
     return { user: null, error: error.message };
@@ -207,16 +117,11 @@ export {
   analytics,
   googleProvider,
   facebookProvider,
-  phoneProvider,
   registerWithEmailAndPassword,
   loginWithEmailAndPassword,
   loginWithGoogle,
   loginWithFacebook,
-  loginWithPhoneNumber,
-  verifyPhoneCode,
-  setupRecaptcha,
   logoutUser,
   resetPassword,
-  subscribeToAuthChanges,
-  clearRecaptchaVerifier
+  subscribeToAuthChanges
 }; 
