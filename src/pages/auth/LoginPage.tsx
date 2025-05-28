@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-import PhoneAuth from '../../components/auth/PhoneAuth';
+import { PhoneAuth } from '../../components/auth';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -184,7 +184,7 @@ const LoginPage: React.FC = () => {
           ) : (
             <PhoneAuth
               onSuccess={handlePhoneAuthSuccess}
-              onError={(error) => setError(error)}
+              onError={(error: string) => setError(error)}
             />
           )}
 

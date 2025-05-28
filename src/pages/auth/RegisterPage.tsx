@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { createUser } from '../../services/firestore';
-import UserProfileSetup from '../../components/auth/UserProfileSetup';
-import PhoneAuth from '../../components/auth/PhoneAuth';
+import { UserProfileSetup, PhoneAuth } from '../../components/auth';
 import { User } from 'firebase/auth';
 import { doc, getDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
@@ -477,7 +476,8 @@ const RegisterPage: React.FC = () => {
 
               <PhoneAuth
                 onSuccess={handlePhoneAuthSuccess}
-                onError={(error) => setErrors({ form: error })}
+                onError={(error: string) => setErrors({ form: error })}
+                name={form.name}
               />
             </div>
           )}
