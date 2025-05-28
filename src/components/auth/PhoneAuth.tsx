@@ -39,8 +39,12 @@ export const PhoneAuth: React.FC<PhoneAuthProps> = ({ onSuccess, onError, name }
   const [isDetectingLocation, setIsDetectingLocation] = useState(true);
   const [showRecaptcha, setShowRecaptcha] = useState(false);
   const [recaptchaSolved, setRecaptchaSolved] = useState(false);
+  const [resendAvailable, setResendAvailable] = useState(false);
+  const [timer, setTimer] = useState(60);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
   const recaptchaContainerRef = useRef<HTMLDivElement>(null);
+  const [codeStep, setCodeStep] = useState(false); // true after first send attempt
 
   // Function to get country code from ISO code
   const getCountryCodeFromISO = (isoCode: string): string => {
@@ -96,22 +100,33 @@ export const PhoneAuth: React.FC<PhoneAuthProps> = ({ onSuccess, onError, name }
     detectUserLocation();
   }, []);
 
+  // Helper to recreate reCAPTCHA
+  const recreateRecaptcha = () => {
+    if (recaptchaVerifierRef.current) {
+      recaptchaVerifierRef.current.clear();
+      recaptchaVerifierRef.current = null;
+    }
+    setRecaptchaSolved(false);
+    setTimeout(() => {
+      if (recaptchaContainerRef.current && !recaptchaVerifierRef.current) {
+        recaptchaVerifierRef.current = new RecaptchaVerifier(
+          recaptchaContainerRef.current,
+          {
+            size: 'normal',
+            callback: () => setRecaptchaSolved(true),
+            'expired-callback': () => setRecaptchaSolved(false),
+          },
+          auth
+        );
+        recaptchaVerifierRef.current.render().catch(console.error);
+      }
+    }, 100);
+  };
+
   // Initialize reCAPTCHA only when showRecaptcha is true
   useEffect(() => {
-    if (showRecaptcha && !recaptchaVerifierRef.current && recaptchaContainerRef.current) {
-      recaptchaVerifierRef.current = new RecaptchaVerifier(
-        recaptchaContainerRef.current,
-        {
-          size: 'normal',
-          callback: () => setRecaptchaSolved(true),
-          'expired-callback': () => {
-            setRecaptchaSolved(false);
-            setError('reCAPTCHA expired. Please try again.');
-          },
-        },
-        auth
-      );
-      recaptchaVerifierRef.current.render().catch(console.error);
+    if (showRecaptcha) {
+      recreateRecaptcha();
     }
     return () => {
       if (recaptchaVerifierRef.current) {
@@ -119,18 +134,50 @@ export const PhoneAuth: React.FC<PhoneAuthProps> = ({ onSuccess, onError, name }
         recaptchaVerifierRef.current = null;
       }
     };
+    // eslint-disable-next-line
   }, [showRecaptcha]);
+
+  // Start timer after code step is active
+  useEffect(() => {
+    if (codeStep && !resendAvailable) {
+      setTimer(60);
+      if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = setInterval(() => {
+        setTimer((prev) => {
+          if (prev <= 1) {
+            setResendAvailable(true);
+            if (timerRef.current) clearInterval(timerRef.current);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [codeStep, resendAvailable]);
 
   const handlePhoneFocus = () => {
     setShowRecaptcha(true);
   };
 
-  const handleSendCode = async (e: React.FormEvent) => {
+  const handleSendCode = async (e: React.FormEvent, isResend = false) => {
     e.preventDefault();
     setError(null);
     // If reCAPTCHA is not shown, show it and return
     if (!showRecaptcha) {
       setShowRecaptcha(true);
+      setResendAvailable(false);
+      setCodeStep(true);
+      return;
+    }
+    // If this is a resend, recreate reCAPTCHA
+    if (isResend) {
+      recreateRecaptcha();
+      setResendAvailable(false);
+      setShowRecaptcha(true);
+      setCodeStep(true);
       return;
     }
     // If reCAPTCHA is shown but not solved, do not proceed
@@ -139,20 +186,22 @@ export const PhoneAuth: React.FC<PhoneAuthProps> = ({ onSuccess, onError, name }
       return;
     }
     setIsLoading(true);
+    setCodeStep(true);
     try {
       if (!recaptchaVerifierRef.current) throw new Error('reCAPTCHA not ready');
       const fullPhone = `${selectedCountryCode}${phoneNumber}`;
       const confirmation = await phoneLogin(fullPhone, recaptchaVerifierRef.current);
       setConfirmationResult(confirmation);
+      setResendAvailable(false);
+      setTimer(60);
     } catch (err: any) {
-      // Handle timeout and expired reCAPTCHA
+      // Remove timeout error display
       const message = err.message || '';
       if (
         err.code === 'auth/timeout' ||
         message.toLowerCase().includes('timeout') ||
         message.toLowerCase().includes('expired')
       ) {
-        setError('Request timed out or reCAPTCHA expired. Please try again.');
         setShowRecaptcha(false);
         setRecaptchaSolved(false);
         if (recaptchaVerifierRef.current) {
@@ -197,13 +246,13 @@ export const PhoneAuth: React.FC<PhoneAuthProps> = ({ onSuccess, onError, name }
 
   return (
     <div className="space-y-4">
-      <form onSubmit={confirmationResult ? handleVerifyCode : handleSendCode} className="space-y-6">
+      <form onSubmit={confirmationResult ? handleVerifyCode : (e) => handleSendCode(e, false)} className="space-y-6">
         {error && (
           <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md mb-2">
             <p className="text-red-700 text-sm">{error}</p>
           </div>
         )}
-        {!confirmationResult && (
+        {!codeStep && (
           <>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
@@ -227,7 +276,6 @@ export const PhoneAuth: React.FC<PhoneAuthProps> = ({ onSuccess, onError, name }
                 />
               </div>
             </div>
-            {/* Only render reCAPTCHA after send button is clicked */}
             {showRecaptcha && (
               <div ref={recaptchaContainerRef} className="mb-4" style={{ minHeight: 78 }} />
             )}
@@ -240,40 +288,40 @@ export const PhoneAuth: React.FC<PhoneAuthProps> = ({ onSuccess, onError, name }
             </button>
           </>
         )}
-        {confirmationResult && (
-          <form onSubmit={handleVerifyCode} className="space-y-6">
+        {codeStep && (
+          <>
             <div>
-              <label htmlFor="code" className="block text-sm font-medium text-gray-700 mb-1">
-                Verification Code
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Verification Code</label>
               <input
                 type="text"
-                id="code"
                 value={verificationCode}
-                onChange={(e) => setVerificationCode(e.target.value)}
+                onChange={e => setVerificationCode(e.target.value)}
                 placeholder="Enter 6-digit code"
-                className="appearance-none relative block w-full px-4 py-3 border border-gray-300 rounded-lg placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300"
+                className="w-full px-4 py-3 border rounded-lg"
                 required
               />
+              <div className="flex justify-end mt-1">
+                {!resendAvailable ? (
+                  <span className="text-gray-500 text-sm">Resend code in {timer}s</span>
+                ) : (
+                  <button
+                    type="button"
+                    className="text-primary underline text-sm"
+                    onClick={(e) => handleSendCode(e, true)}
+                  >
+                    Resend code
+                  </button>
+                )}
+              </div>
             </div>
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all duration-300 disabled:opacity-70"
+              className="w-full py-3 rounded-lg bg-primary text-white"
             >
-              {isLoading ? (
-                <span className="flex items-center">
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Verifying...
-                </span>
-              ) : (
-                'Verify Code'
-              )}
+              {isLoading ? 'Verifying...' : 'Verify Code'}
             </button>
-          </form>
+          </>
         )}
       </form>
     </div>
