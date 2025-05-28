@@ -10,7 +10,10 @@ import {
   signInWithPopup,
   updateProfile,
   onAuthStateChanged,
-  User
+  User,
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+  PhoneAuthProvider
 } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
@@ -103,6 +106,24 @@ const resetPassword = async (email: string) => {
   }
 };
 
+const loginWithPhoneNumber = async (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier) => {
+  try {
+    const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
+    return { confirmationResult, error: null };
+  } catch (error: any) {
+    return { confirmationResult: null, error: error.message };
+  }
+};
+
+const verifyPhoneCode = async (confirmationResult: any, code: string) => {
+  try {
+    const result = await confirmationResult.confirm(code);
+    return { user: result.user, error: null };
+  } catch (error: any) {
+    return { user: null, error: error.message };
+  }
+};
+
 // Current user subscription
 const subscribeToAuthChanges = (callback: (user: User | null) => void) => {
   return onAuthStateChanged(auth, callback);
@@ -123,5 +144,8 @@ export {
   loginWithFacebook,
   logoutUser,
   resetPassword,
-  subscribeToAuthChanges
+  subscribeToAuthChanges,
+  loginWithPhoneNumber,
+  verifyPhoneCode,
+  RecaptchaVerifier
 }; 

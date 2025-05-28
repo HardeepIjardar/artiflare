@@ -1,5 +1,15 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User } from 'firebase/auth';
+import {
+  User,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  updateProfile,
+  GoogleAuthProvider,
+  signInWithPopup,
+  ConfirmationResult
+} from 'firebase/auth';
 import { 
   subscribeToAuthChanges,
   loginWithEmailAndPassword,
@@ -7,8 +17,12 @@ import {
   loginWithGoogle,
   loginWithFacebook,
   logoutUser,
-  resetPassword
+  resetPassword,
+  loginWithPhoneNumber,
+  verifyPhoneCode,
+  RecaptchaVerifier
 } from '../services/firebase';
+import { auth } from '../services/firebase';
 
 // Define the shape of our context
 interface AuthContextType {
@@ -21,6 +35,8 @@ interface AuthContextType {
   facebookLogin: () => Promise<{ user: User | null; error: string | null }>;
   resetUserPassword: (email: string) => Promise<{ success: boolean; error: string | null }>;
   updateCurrentUser: (user: User | null) => void;
+  phoneLogin: (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier) => Promise<{ confirmationResult: any; error: string | null }>;
+  verifyPhoneCode: (confirmationResult: any, code: string) => Promise<{ user: User | null; error: string | null }>;
 }
 
 // Create the context with a default value
@@ -33,6 +49,21 @@ export function useAuth() {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
+}
+
+interface AuthResult {
+  user: User | null;
+  error: string | null;
+}
+
+interface PhoneAuthResult {
+  confirmationResult: ConfirmationResult | null;
+  error: string | null;
+}
+
+interface VerifyPhoneResult {
+  user: User | null;
+  error: string | null;
 }
 
 // Provider component
@@ -79,6 +110,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return resetPassword(email);
   };
 
+  const phoneLogin = async (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier) => {
+    return loginWithPhoneNumber(phoneNumber, recaptchaVerifier);
+  };
+
+  const verifyPhoneCode = async (
+    confirmationResult: ConfirmationResult,
+    code: string
+  ): Promise<VerifyPhoneResult> => {
+    try {
+      const result = await confirmationResult.confirm(code);
+      return { user: result.user, error: null };
+    } catch (error: any) {
+      return { user: null, error: error.message || 'Failed to verify code' };
+    }
+  };
+
   const value = {
     currentUser,
     isLoading,
@@ -88,7 +135,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     googleLogin,
     facebookLogin,
     resetUserPassword,
-    updateCurrentUser
+    updateCurrentUser,
+    phoneLogin,
+    verifyPhoneCode
   };
 
   return (
