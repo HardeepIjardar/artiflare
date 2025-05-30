@@ -108,19 +108,61 @@ const resetPassword = async (email: string) => {
 
 const loginWithPhoneNumber = async (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier) => {
   try {
+    if (!phoneNumber || !recaptchaVerifier) {
+      throw new Error('Phone number and reCAPTCHA verifier are required');
+    }
+
+    // Validate phone number format
+    if (!/^\+[1-9]\d{1,14}$/.test(phoneNumber)) {
+      throw new Error('Invalid phone number format');
+    }
+
     const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
     return { confirmationResult, error: null };
   } catch (error: any) {
-    return { confirmationResult: null, error: error.message };
+    console.error('Phone login error:', error);
+    let errorMessage = 'Failed to send verification code';
+    
+    if (error.code === 'auth/invalid-phone-number') {
+      errorMessage = 'Invalid phone number format';
+    } else if (error.code === 'auth/too-many-requests') {
+      errorMessage = 'Too many attempts. Please try again later';
+    } else if (error.code === 'auth/quota-exceeded') {
+      errorMessage = 'SMS quota exceeded. Please try again later';
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    return { confirmationResult: null, error: errorMessage };
   }
 };
 
 const verifyPhoneCode = async (confirmationResult: any, code: string) => {
   try {
+    if (!confirmationResult || !code) {
+      throw new Error('Confirmation result and verification code are required');
+    }
+
+    // Validate code format
+    if (!/^\d{6}$/.test(code)) {
+      throw new Error('Invalid verification code format');
+    }
+
     const result = await confirmationResult.confirm(code);
     return { user: result.user, error: null };
   } catch (error: any) {
-    return { user: null, error: error.message };
+    console.error('Phone verification error:', error);
+    let errorMessage = 'Failed to verify code';
+    
+    if (error.code === 'auth/invalid-verification-code') {
+      errorMessage = 'Invalid verification code';
+    } else if (error.code === 'auth/code-expired') {
+      errorMessage = 'Verification code has expired';
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    return { user: null, error: errorMessage };
   }
 };
 

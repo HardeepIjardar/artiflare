@@ -44,15 +44,38 @@ export const PhoneAuth: React.FC<PhoneAuthProps> = ({ onSuccess, onError, name }
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
   const recaptchaContainerRef = useRef<HTMLDivElement>(null);
-  const [codeStep, setCodeStep] = useState(false); // true after first send attempt
+  const [codeStep, setCodeStep] = useState(false);
 
-  // Function to get country code from ISO code
-  const getCountryCodeFromISO = (isoCode: string): string => {
-    const country = countryCodes.find(country => 
-      country.iso.includes(isoCode.toUpperCase())
-    );
-    return country?.code || '+1'; // Default to US/Canada if not found
-  };
+  // Initialize reCAPTCHA when component mounts
+  useEffect(() => {
+    if (showRecaptcha && recaptchaContainerRef.current && !recaptchaVerifierRef.current) {
+      recaptchaVerifierRef.current = new RecaptchaVerifier(
+        recaptchaContainerRef.current,
+        {
+          size: 'normal',
+          callback: () => {
+            setRecaptchaSolved(true);
+            setError(null);
+          },
+          'expired-callback': () => {
+            setRecaptchaSolved(false);
+            setError('reCAPTCHA expired. Please try again.');
+          },
+        },
+        auth
+      );
+      recaptchaVerifierRef.current.render().catch((err) => {
+        console.error('reCAPTCHA render error:', err);
+        setError('Failed to initialize reCAPTCHA. Please refresh the page.');
+      });
+    }
+    return () => {
+      if (recaptchaVerifierRef.current) {
+        recaptchaVerifierRef.current.clear();
+        recaptchaVerifierRef.current = null;
+      }
+    };
+  }, [showRecaptcha]);
 
   // Detect user's location and set country code
   useEffect(() => {
@@ -100,71 +123,35 @@ export const PhoneAuth: React.FC<PhoneAuthProps> = ({ onSuccess, onError, name }
     detectUserLocation();
   }, []);
 
-  // Helper to recreate reCAPTCHA
-  const recreateRecaptcha = () => {
-    if (recaptchaVerifierRef.current) {
-      recaptchaVerifierRef.current.clear();
-      recaptchaVerifierRef.current = null;
-    }
-    setRecaptchaSolved(false);
-    setTimeout(() => {
-      if (recaptchaContainerRef.current && !recaptchaVerifierRef.current) {
-        recaptchaVerifierRef.current = new RecaptchaVerifier(
-          recaptchaContainerRef.current,
-          {
-            size: 'normal',
-            callback: () => setRecaptchaSolved(true),
-            'expired-callback': () => setRecaptchaSolved(false),
-          },
-          auth
-        );
-        recaptchaVerifierRef.current.render().catch(console.error);
-      }
-    }, 100);
+  // Function to get country code from ISO code
+  const getCountryCodeFromISO = (isoCode: string): string => {
+    const country = countryCodes.find(country => 
+      country.iso.includes(isoCode.toUpperCase())
+    );
+    return country?.code || '+1'; // Default to US/Canada if not found
   };
 
-  // Initialize reCAPTCHA only when showRecaptcha is true
-  useEffect(() => {
-    if (showRecaptcha) {
-      recreateRecaptcha();
-    }
-    return () => {
-      if (recaptchaVerifierRef.current) {
-        recaptchaVerifierRef.current.clear();
-        recaptchaVerifierRef.current = null;
-      }
-    };
-    // eslint-disable-next-line
-  }, [showRecaptcha]);
-
-  // Start timer after code step is active
-  useEffect(() => {
-    if (codeStep && !resendAvailable) {
-      setTimer(60);
-      if (timerRef.current) clearInterval(timerRef.current);
-      timerRef.current = setInterval(() => {
-        setTimer((prev) => {
-          if (prev <= 1) {
-            setResendAvailable(true);
-            if (timerRef.current) clearInterval(timerRef.current);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [codeStep, resendAvailable]);
+  const validatePhoneNumber = (number: string): boolean => {
+    // Basic phone number validation (adjust regex based on your needs)
+    const phoneRegex = /^\d{10}$/;
+    return phoneRegex.test(number);
+  };
 
   const handlePhoneFocus = () => {
     setShowRecaptcha(true);
+    setError(null);
   };
 
   const handleSendCode = async (e: React.FormEvent, isResend = false) => {
     e.preventDefault();
     setError(null);
+
+    // Validate phone number
+    if (!validatePhoneNumber(phoneNumber)) {
+      setError('Please enter a valid 10-digit phone number');
+      return;
+    }
+
     // If reCAPTCHA is not shown, show it and return
     if (!showRecaptcha) {
       setShowRecaptcha(true);
@@ -172,30 +159,44 @@ export const PhoneAuth: React.FC<PhoneAuthProps> = ({ onSuccess, onError, name }
       setCodeStep(true);
       return;
     }
+
     // If this is a resend, recreate reCAPTCHA
     if (isResend) {
-      recreateRecaptcha();
+      if (recaptchaVerifierRef.current) {
+        recaptchaVerifierRef.current.clear();
+        recaptchaVerifierRef.current = null;
+      }
       setResendAvailable(false);
       setShowRecaptcha(true);
       setCodeStep(true);
       return;
     }
+
     // If reCAPTCHA is shown but not solved, do not proceed
     if (!recaptchaSolved) {
-      setError('Please complete the reCAPTCHA.');
+      setError('Please complete the reCAPTCHA verification');
       return;
     }
+
     setIsLoading(true);
     setCodeStep(true);
+
     try {
-      if (!recaptchaVerifierRef.current) throw new Error('reCAPTCHA not ready');
+      if (!recaptchaVerifierRef.current) {
+        throw new Error('reCAPTCHA not initialized');
+      }
+
       const fullPhone = `${selectedCountryCode}${phoneNumber}`;
       const confirmation = await phoneLogin(fullPhone, recaptchaVerifierRef.current);
-      setConfirmationResult(confirmation);
+      
+      if (confirmation.error) {
+        throw new Error(confirmation.error);
+      }
+
+      setConfirmationResult(confirmation.confirmationResult);
       setResendAvailable(false);
       setTimer(60);
     } catch (err: any) {
-      // Remove timeout error display
       const message = err.message || '';
       if (
         err.code === 'auth/timeout' ||
@@ -208,6 +209,7 @@ export const PhoneAuth: React.FC<PhoneAuthProps> = ({ onSuccess, onError, name }
           recaptchaVerifierRef.current.clear();
           recaptchaVerifierRef.current = null;
         }
+        setError('reCAPTCHA expired. Please try again.');
         return;
       }
       setError(message || 'Failed to send verification code');
@@ -252,7 +254,8 @@ export const PhoneAuth: React.FC<PhoneAuthProps> = ({ onSuccess, onError, name }
             <p className="text-red-700 text-sm">{error}</p>
           </div>
         )}
-        {!codeStep && (
+        
+        {!confirmationResult ? (
           <>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
@@ -270,25 +273,31 @@ export const PhoneAuth: React.FC<PhoneAuthProps> = ({ onSuccess, onError, name }
                   type="tel"
                   value={phoneNumber}
                   onChange={e => setPhoneNumber(e.target.value)}
+                  onFocus={handlePhoneFocus}
                   placeholder="1234567890"
                   className="flex-1 px-4 py-3 border rounded-lg"
                   required
+                  pattern="[0-9]{10}"
+                  title="Please enter a 10-digit phone number"
                 />
               </div>
             </div>
             {showRecaptcha && (
-              <div ref={recaptchaContainerRef} className="mb-4" style={{ minHeight: 78 }} />
+              <div 
+                ref={recaptchaContainerRef} 
+                className="mb-4 flex justify-center" 
+                style={{ minHeight: 78 }}
+              />
             )}
             <button
               type="submit"
-              disabled={isLoading}
-              className="w-full py-3 rounded-lg bg-primary text-white"
+              disabled={isLoading || !phoneNumber}
+              className="w-full py-3 rounded-lg bg-primary text-white disabled:opacity-50"
             >
               {isLoading ? 'Sending...' : 'Send Verification Code'}
             </button>
           </>
-        )}
-        {codeStep && (
+        ) : (
           <>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Verification Code</label>
