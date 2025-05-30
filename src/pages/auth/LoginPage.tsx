@@ -15,6 +15,7 @@ const LoginPage: React.FC = () => {
   const { login, googleLogin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [phoneName, setPhoneName] = useState('');
   
   // Get the redirect path from location state or default to home
   const from = (location.state as any)?.from?.pathname || '/';
@@ -83,6 +84,13 @@ const LoginPage: React.FC = () => {
   const handlePhoneAuthSuccess = async (user: User) => {
     try {
       setIsLoading(true);
+      // Check if user already has a displayName in Firestore
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (!userDoc.exists() || !userDoc.data().displayName) {
+        // Update Firestore with the provided name
+        const { updateUserProfile } = await import('../../services/firestore');
+        await updateUserProfile(user.uid, { displayName: phoneName });
+      }
       await handleRedirect(user);
     } catch (error: any) {
       setError(error.message || 'Failed to complete login');
@@ -182,10 +190,28 @@ const LoginPage: React.FC = () => {
               </div>
             </form>
           ) : (
-            <PhoneAuth
-              onSuccess={handlePhoneAuthSuccess}
-              onError={(error: string) => setError(error)}
-            />
+            <>
+              <div>
+                <label htmlFor="phoneName" className="block text-sm font-medium text-gray-700 mb-1">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  id="phoneName"
+                  name="phoneName"
+                  value={phoneName}
+                  onChange={e => setPhoneName(e.target.value)}
+                  className="appearance-none relative block w-full px-4 py-3 border border-gray-300 rounded-lg placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300"
+                  placeholder="Your Name"
+                  required
+                />
+              </div>
+              <PhoneAuth
+                onSuccess={handlePhoneAuthSuccess}
+                onError={(error: string) => setError(error)}
+                name={phoneName}
+              />
+            </>
           )}
 
           {/* Divider */}
