@@ -249,12 +249,6 @@ export const PhoneAuth: React.FC<PhoneAuthProps> = ({ onSuccess, onError, name }
   return (
     <div className="space-y-4">
       <form onSubmit={confirmationResult ? handleVerifyCode : (e) => handleSendCode(e, false)} className="space-y-6">
-        {error && (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md mb-2">
-            <p className="text-red-700 text-sm">{error}</p>
-          </div>
-        )}
-        
         {!confirmationResult ? (
           <>
             <div>
