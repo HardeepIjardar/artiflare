@@ -3,11 +3,21 @@ import { Outlet, Link, NavLink } from 'react-router-dom';
 import { FaUserCircle } from 'react-icons/fa';
 import Logo from '../components/Logo';
 import { useAuth } from '../contexts/AuthContext';
+import { getUserData } from '../services/firestore';
 
 const ArtisanLayout: React.FC = () => {
   const { currentUser } = useAuth();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const [firestoreUser, setFirestoreUser] = useState<any>(null);
+
+  useEffect(() => {
+    if (currentUser) {
+      getUserData(currentUser.uid).then(data => setFirestoreUser(data));
+    } else {
+      setFirestoreUser(null);
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     // Close the profile menu when clicking outside
@@ -43,8 +53,8 @@ const ArtisanLayout: React.FC = () => {
                   onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
                 >
                   <FaUserCircle className="h-8 w-8 text-primary" />
-                  {currentUser?.displayName && (
-                    <span className="ml-2 text-dark">{currentUser.displayName}</span>
+                  {firestoreUser?.displayName && (
+                    <span className="ml-2 text-dark">{firestoreUser.displayName}</span>
                   )}
                 </button>
                 

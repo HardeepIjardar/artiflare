@@ -249,7 +249,10 @@ export const getProducts = async (
     
     const products: Product[] = [];
     querySnapshot.forEach((doc) => {
-      products.push(doc.data() as Product);
+      products.push({
+        id: doc.id,
+        ...doc.data(),
+      } as Product);
     });
     
     return { products, error: null };

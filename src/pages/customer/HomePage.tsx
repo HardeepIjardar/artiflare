@@ -137,38 +137,6 @@ const ArtisanCard: React.FC<ArtisanCardProps> = ({ name, rating, reviewCount, di
   </Link>
 );
 
-// Featured Artisans Section
-const FeaturedArtisansSection = () => (
-  <div className="px-4 sm:px-6 lg:px-8 mt-12 mb-12">
-    <div className="max-w-7xl mx-auto">
-      <h2 className="text-xl sm:text-2xl font-bold text-dark mb-6">Featured Artisans</h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <ArtisanCard 
-          name="Emma's Crafts" 
-          rating={4.9} 
-          reviewCount={56} 
-          distance="5 miles away" 
-          link="/artisans/emmas-crafts" 
-        />
-        <ArtisanCard 
-          name="Woodwork Wonders" 
-          rating={4.7} 
-          reviewCount={38} 
-          distance="8 miles away" 
-          link="/artisans/woodwork-wonders" 
-        />
-        <ArtisanCard 
-          name="Paper & Petals" 
-          rating={4.8} 
-          reviewCount={42} 
-          distance="3 miles away" 
-          link="/artisans/paper-petals" 
-        />
-      </div>
-    </div>
-  </div>
-);
-
 // HomePage Component
 const HomePage: React.FC = () => {
   const { addToCart, updateQuantity: updateCartQuantity, cartItems, removeFromCart } = useCart();
@@ -265,7 +233,7 @@ const HomePage: React.FC = () => {
                   key={product.id}
                   product={product}
                   artisanName={artisanNames[product.artisanId] || 'Artisan'}
-                  inCart={!!cartItems.find(item => item.id === product.id)}
+                  inCart={cartItems.some(item => item.id === product.id)}
                   quantity={quantities[product.id] || 1}
                   showQuantitySelector={!!showQuantitySelector[product.id]}
                   onAddToCart={handleAddToCartClick}
@@ -277,7 +245,6 @@ const HomePage: React.FC = () => {
           )}
         </div>
       </div>
-      <FeaturedArtisansSection />
     </div>
   );
 };

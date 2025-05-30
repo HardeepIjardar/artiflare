@@ -32,7 +32,7 @@ service cloud.firestore {
     
     // Products
     match /products/{productId} {
-      // Anyone can read products
+      // Anyone can read products (public access)
       allow read: if true;
       
       // Only artisans and admins can create products

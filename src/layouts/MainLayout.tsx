@@ -17,6 +17,7 @@ const MainLayout: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [userRole, setUserRole] = useState<'customer' | 'artisan' | 'admin' | null>(null);
   const isHomePage = location.pathname === '/';
+  const [firestoreUser, setFirestoreUser] = useState<any>(null);
   
   // Reference to the hero section search bar (for intersection observer)
   const heroSearchRef = useRef<HTMLDivElement | null>(null);
@@ -34,6 +35,14 @@ const MainLayout: React.FC = () => {
     };
 
     fetchUserRole();
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      getUserData(currentUser.uid).then(data => setFirestoreUser(data));
+    } else {
+      setFirestoreUser(null);
+    }
   }, [currentUser]);
 
   useEffect(() => {
@@ -158,8 +167,8 @@ const MainLayout: React.FC = () => {
                       onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
                     >
                       <FaUserCircle className="h-8 w-8 text-primary" />
-                      {currentUser?.displayName && (
-                        <span className="ml-2 text-dark">{currentUser.displayName}</span>
+                      {firestoreUser?.displayName && (
+                        <span className="ml-2 text-dark">{firestoreUser.displayName}</span>
                       )}
                     </button>
                     
