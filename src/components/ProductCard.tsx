@@ -34,7 +34,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
   return (
     <div
-      className="bg-white rounded-lg shadow p-6 cursor-pointer hover:shadow-lg transition-shadow duration-200 relative"
+      className="bg-white rounded-lg shadow px-6 pt-6 pb-4 cursor-pointer hover:shadow-lg transition-shadow duration-200 relative"
       onClick={handleCardClick}
       tabIndex={0}
       role="button"
@@ -81,7 +81,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
       </div>
       <button
         onClick={e => { e.stopPropagation(); navigate(`/products/${product.id}`); }}
-        className="mt-4 w-full bg-secondary text-white py-2 rounded hover:bg-secondary-700 transition-colors duration-150"
+        className="mt-3 w-full bg-secondary text-white py-2 rounded hover:bg-secondary-700 transition-colors duration-150"
       >
         View Details
       </button>

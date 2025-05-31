@@ -146,6 +146,8 @@ const HomePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [artisanNames, setArtisanNames] = useState<{ [key: string]: string }>({});
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [selectedOccasion, setSelectedOccasion] = useState('');
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -174,6 +176,11 @@ const HomePage: React.FC = () => {
     };
     fetchProducts();
   }, []);
+
+  // Filter products by occasion if selected
+  const filteredProducts = selectedOccasion
+    ? products.filter(product => product.occasion?.toLowerCase() === selectedOccasion.toLowerCase())
+    : products;
 
   const handleAddToCartClick = (productId: string) => {
     const product = products.find(p => p.id === productId);
@@ -221,14 +228,45 @@ const HomePage: React.FC = () => {
       {/* All Products Section */}
       <div className="px-4 sm:px-6 lg:px-8 mt-12">
         <div className="max-w-7xl mx-auto">
-          <h2 className="text-xl sm:text-2xl font-bold text-dark mb-6">All Products</h2>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-dark">All Products</h2>
+            <div className="relative">
+              <button
+                className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-700 focus:outline-none"
+                onClick={() => setFilterOpen(v => !v)}
+              >
+                Filter
+              </button>
+              {filterOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded shadow-lg z-10 p-4">
+                  <label htmlFor="occasion" className="block text-sm font-medium text-gray-700 mb-2">
+                    Occasion
+                  </label>
+                  <select
+                    id="occasion"
+                    value={selectedOccasion}
+                    onChange={e => setSelectedOccasion(e.target.value)}
+                    className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md"
+                  >
+                    <option value="">All Occasions</option>
+                    <option value="wedding">Wedding</option>
+                    <option value="birthday">Birthday</option>
+                    <option value="anniversary">Anniversary</option>
+                    <option value="christmas">Christmas</option>
+                    <option value="valentines">Valentine's Day</option>
+                    <option value="housewarming">Housewarming</option>
+                  </select>
+                </div>
+              )}
+            </div>
+          </div>
           {loading ? (
             <div className="text-center">Loading products...</div>
           ) : error ? (
             <div className="text-center text-red-500">{error}</div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {products.map(product => (
+              {filteredProducts.map(product => (
                 <ProductCard
                   key={product.id}
                   product={product}
