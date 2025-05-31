@@ -28,13 +28,20 @@ const ProductDetailPage: React.FC = () => {
   useEffect(() => {
     const fetchProduct = async () => {
       if (!id) return;
-      
+      setLoading(true);
+      setError(null);
       try {
-        const { product, error } = await getProductById(id);
-        if (error) {
-          setError(error);
-        } else if (product) {
-          setProduct(product);
+        const product = await getProductById(id);
+        if (typeof product.id === 'string') {
+          setProduct({
+            ...product,
+            id: product.id as string,
+            createdAt: product.createdAt ? product.createdAt : new Date(),
+            updatedAt: product.updatedAt ? product.updatedAt : new Date(),
+            attributes: product.attributes ?? {},
+            tags: product.tags ?? [],
+            isCustomizable: product.isCustomizable ?? false
+          });
           setSelectedImage(product.images && product.images.length > 0 ? product.images[0] : null);
           // Fetch artisan name
           const userData = await getUserData(product.artisanId);
@@ -47,14 +54,17 @@ const ProductDetailPage: React.FC = () => {
               setQuantity(cartItem.quantity);
             }
           }
+        } else {
+          setError('Product not found');
+          setProduct(null);
         }
-      } catch (err) {
-        setError('Failed to fetch product');
+      } catch (err: any) {
+        setError(err.message || 'Product not found');
+        setProduct(null);
       } finally {
         setLoading(false);
       }
     };
-
     fetchProduct();
   }, [id, cartItems]);
 
@@ -204,9 +214,13 @@ const ProductDetailPage: React.FC = () => {
             <h1 className="text-3xl font-bold text-dark mb-2">{product.name}</h1>
             <p className="text-dark-500 mb-4">by <Link to={`/artisan/${product.artisanId}`} className="font-semibold text-primary hover:underline">{artisanName}</Link></p>
             <div className="mb-6 flex items-center space-x-4">
-              <span className="text-primary text-2xl font-bold">${product.price.toFixed(2)}</span>
-              {product.discountedPrice && (
-                <span className="text-dark-500 line-through text-lg">${product.discountedPrice.toFixed(2)}</span>
+              {product.discountedPrice ? (
+                <>
+                  <span className="text-primary text-2xl font-bold">${product.discountedPrice.toFixed(2)}</span>
+                  <span className="text-dark-500 line-through text-lg">${product.price.toFixed(2)}</span>
+                </>
+              ) : (
+                <span className="text-primary text-2xl font-bold">${product.price.toFixed(2)}</span>
               )}
               <span className="ml-4 text-sm text-dark-500">In stock: {product.inventory}</span>
             </div>
@@ -231,12 +245,6 @@ const ProductDetailPage: React.FC = () => {
                     className="bg-primary text-white px-6 py-2 rounded hover:bg-primary-700"
                   >
                     Add to Cart
-                  </button>
-                  <button
-                    onClick={() => navigate('/cart')}
-                    className="ml-2 bg-primary text-white px-6 py-2 rounded hover:bg-primary-700 transition"
-                  >
-                    Proceed to Checkout
                   </button>
                 </>
               ) : (
@@ -325,7 +333,9 @@ const ProductDetailPage: React.FC = () => {
                 rows={3}
                 required
               />
-              {reviewError && <div className="text-red-500 mb-2">{reviewError}</div>}
+              {reviewError && !reviewError.toLowerCase().includes('firestore') && (
+                <div className="text-red-500 mb-2">{reviewError}</div>
+              )}
               <button type="submit" disabled={submittingReview} className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-700">
                 {submittingReview ? 'Submitting...' : 'Submit Review'}
               </button>
