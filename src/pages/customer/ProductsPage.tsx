@@ -12,6 +12,7 @@ const ProductsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [artisanNames, setArtisanNames] = useState<{ [key: string]: string }>({});
+  const [selectedOccasion, setSelectedOccasion] = useState<string>('');
   
   useEffect(() => {
     const fetchProductsAndArtisans = async () => {
@@ -20,14 +21,19 @@ const ProductsPage: React.FC = () => {
         if (error) {
           setError(error);
         } else {
-          setProducts(products);
+          setProducts(products || []);
           // Fetch artisan names
           const uniqueArtisanIds = Array.from(new Set(products.map(p => p.artisanId)));
           const namesMap: { [key: string]: string } = {};
           await Promise.all(uniqueArtisanIds.map(async (artisanId) => {
-            const userData = await getUserData(artisanId);
-            if (userData) {
-              namesMap[artisanId] = userData.companyName || userData.displayName || 'Artisan';
+            try {
+              const userData = await getUserData(artisanId);
+              if (userData) {
+                namesMap[artisanId] = userData.companyName || userData.displayName || 'Artisan';
+              }
+            } catch (err) {
+              console.error(`Error fetching artisan data for ${artisanId}:`, err);
+              namesMap[artisanId] = 'Artisan';
             }
           }));
           setArtisanNames(namesMap);
@@ -40,12 +46,11 @@ const ProductsPage: React.FC = () => {
     };
     fetchProductsAndArtisans();
   }, []);
-  
+
   const handleAddToCartClick = (productId: string) => {
     const product = products.find(p => p.id === productId);
     if (!product) return;
     
-    // First add 1 item to cart immediately
     addToCart({
       id: product.id,
       name: product.name,
@@ -55,24 +60,19 @@ const ProductsPage: React.FC = () => {
       image: product.images[0]
     });
     
-    // Show quantity selector for adjusting
     setShowQuantitySelector(prev => ({ ...prev, [productId]: true }));
-    // Initialize quantity to 1
     setQuantities(prev => ({ ...prev, [productId]: 1 }));
   };
 
   const incrementQuantity = (productId: string) => {
     const newQuantity = (quantities[productId] || 1) + 1;
     setQuantities(prev => ({ ...prev, [productId]: newQuantity }));
-    
-    // Directly update cart quantity
     updateCartQuantity(productId, newQuantity);
   };
 
   const decrementQuantity = (productId: string) => {
     const currentQuantity = quantities[productId] || 1;
     if (currentQuantity <= 1) {
-      // Remove from cart if quantity would be 0
       removeFromCart(productId);
       setShowQuantitySelector(prev => ({ ...prev, [productId]: false }));
       setQuantities(prev => {
@@ -86,6 +86,11 @@ const ProductsPage: React.FC = () => {
       updateCartQuantity(productId, newQuantity);
     }
   };
+
+  // Filter products by occasion
+  const filteredProducts = selectedOccasion
+    ? products.filter(product => product.occasion?.toLowerCase() === selectedOccasion.toLowerCase())
+    : products;
 
   if (loading) {
     return (
@@ -105,10 +110,33 @@ const ProductsPage: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-2xl font-bold text-dark mb-6">All Products</h1>
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-dark mb-6">All Products</h1>
+        
+        {/* Occasion Filter */}
+        <div className="mb-6">
+          <label htmlFor="occasion" className="block text-sm font-medium text-gray-700 mb-2">
+            Filter by Occasion
+          </label>
+          <select
+            id="occasion"
+            value={selectedOccasion}
+            onChange={(e) => setSelectedOccasion(e.target.value)}
+            className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md"
+          >
+            <option value="">All Occasions</option>
+            <option value="wedding">Wedding</option>
+            <option value="birthday">Birthday</option>
+            <option value="anniversary">Anniversary</option>
+            <option value="christmas">Christmas</option>
+            <option value="valentines">Valentine's Day</option>
+            <option value="housewarming">Housewarming</option>
+          </select>
+        </div>
+      </div>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {products.map(product => (
+        {filteredProducts.map(product => (
           <ProductCard
             key={product.id}
             product={product}

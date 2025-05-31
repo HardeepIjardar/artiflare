@@ -15,35 +15,21 @@ import {
   addDoc,
   DocumentData,
   QueryConstraint,
-  serverTimestamp
+  serverTimestamp,
+  writeBatch,
+  runTransaction,
+  QueryDocumentSnapshot,
+  DocumentSnapshot,
+  startAfter,
+  Query,
+  getCountFromServer
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { z } from 'zod';
 
 // Type definitions
-export interface User {
-  uid: string;
-  displayName: string;
-  email: string;
-  photoURL?: string;
-  phoneNumber?: string;
-  role: 'customer' | 'artisan' | 'admin';
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-  address?: Address;
-  bio?: string; // For artisans
-  companyName?: string; // For artisans
-}
-
-export interface Address {
-  street: string;
-  city: string;
-  state: string;
-  zipCode: string;
-  country: string;
-}
-
-export interface Product {
-  id: string;
+export interface ProductData {
+  id?: string;
   name: string;
   description: string;
   price: number;
@@ -52,18 +38,115 @@ export interface Product {
   category: string;
   subcategory?: string;
   artisanId: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
   inventory: number;
-  attributes: Record<string, any>;
-  tags: string[];
-  isCustomizable: boolean;
+  attributes?: {
+    size?: string[];
+    color?: string[];
+    material?: string[];
+    weight?: number;
+    dimensions?: string;
+  };
+  tags?: string[];
+  isCustomizable?: boolean;
   averageRating?: number;
   totalReviews?: number;
   occasion?: string;
   materials?: string[];
+  status?: string;
+  shippingInfo?: {
+    weight?: number;
+    dimensions?: string;
+    freeShipping?: boolean;
+    shippingTime?: string;
+  };
+  customizationOptions?: {
+    text?: boolean;
+    color?: boolean;
+    size?: boolean;
+    material?: boolean;
+  };
 }
 
+export interface UserData {
+  uid: string;
+  displayName: string;
+  email: string;
+  photoURL?: string;
+  phoneNumber?: string;
+  role: 'customer' | 'artisan' | 'admin';
+  createdAt?: Date;
+  updatedAt?: Date;
+  address?: {
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    country: string;
+  };
+  bio?: string;
+  companyName?: string;
+  isVerified?: boolean;
+  lastLogin?: Date;
+  preferences?: {
+    notifications: boolean;
+    emailUpdates: boolean;
+    theme: string;
+  };
+}
+
+// Validation schemas
+const addressSchema = z.object({
+  street: z.string().min(1, 'Street is required'),
+  city: z.string().min(1, 'City is required'),
+  state: z.string().min(1, 'State is required'),
+  zipCode: z.string().min(1, 'Zip code is required'),
+  country: z.string().min(1, 'Country is required')
+});
+
+const userSchema = z.object({
+  uid: z.string(),
+  displayName: z.string().min(1, 'Display name is required'),
+  email: z.string().email('Invalid email'),
+  photoURL: z.string().optional(),
+  phoneNumber: z.string().optional(),
+  role: z.enum(['customer', 'artisan', 'admin']),
+  createdAt: z.instanceof(Timestamp),
+  updatedAt: z.instanceof(Timestamp),
+  address: addressSchema.optional(),
+  bio: z.string().optional(),
+  companyName: z.string().optional()
+});
+
+const productSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1, 'Product name is required'),
+  description: z.string().min(1, 'Description is required'),
+  price: z.number().positive('Price must be positive'),
+  discountedPrice: z.number().positive('Discounted price must be positive').optional(),
+  images: z.array(z.string()).min(1, 'At least one image is required'),
+  category: z.string().min(1, 'Category is required'),
+  subcategory: z.string().optional(),
+  artisanId: z.string(),
+  createdAt: z.instanceof(Date),
+  updatedAt: z.instanceof(Date),
+  inventory: z.number().int().min(0, 'Inventory cannot be negative'),
+  attributes: z.record(z.any()),
+  tags: z.array(z.string()),
+  isCustomizable: z.boolean(),
+  averageRating: z.number().min(0).max(5).optional(),
+  totalReviews: z.number().int().min(0).optional(),
+  occasion: z.string().optional(),
+  materials: z.array(z.string()).optional()
+});
+
+// Type definitions (using Zod inferred types)
+export type Address = z.infer<typeof addressSchema>;
+export type User = z.infer<typeof userSchema>;
+export type Product = z.infer<typeof productSchema>;
+
+// Add missing type definitions
 export interface Order {
   id: string;
   userId: string;
@@ -110,179 +193,231 @@ export interface Review {
   };
 }
 
-// User operations
-export const createUser = async (uid: string, userData: Partial<User>) => {
+// Custom error class
+export class FirestoreError extends Error {
+  constructor(
+    message: string,
+    public code: string,
+    public details?: any
+  ) {
+    super(message);
+    this.name = 'FirestoreError';
+  }
+}
+
+// Helper functions
+const handleError = (error: any, context: string): never => {
+  console.error(`Error in ${context}:`, error);
+  throw new FirestoreError(
+    error.message || 'An unknown error occurred',
+    error.code || 'unknown',
+    error
+  );
+};
+
+const validateData = <T>(schema: z.ZodSchema<T>, data: unknown): T => {
+  try {
+    return schema.parse(data);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new FirestoreError(
+        'Validation error',
+        'invalid-data',
+        error.errors
+      );
+    }
+    throw error;
+  }
+};
+
+// Batch operations
+const batchCreateProducts = async (products: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>[]) => {
+  const batch = writeBatch(db);
+  const now = new Date();
+
+  try {
+    products.forEach(product => {
+      const productRef = doc(collection(db, 'products'));
+      const productData = {
+        ...product,
+        createdAt: now,
+        updatedAt: now
+      };
+      validateData(productSchema, { ...productData, id: productRef.id });
+      batch.set(productRef, productData);
+    });
+
+    await batch.commit();
+    return { success: true, error: null };
+  } catch (error) {
+    return { success: false, error: handleError(error, 'batchCreateProducts') };
+  }
+};
+
+const batchUpdateProducts = async (updates: { id: string; data: Partial<Product> }[]) => {
+  const batch = writeBatch(db);
+  const now = new Date();
+
+  try {
+    updates.forEach(({ id, data }) => {
+      const productRef = doc(db, 'products', id);
+      batch.update(productRef, { ...data, updatedAt: now });
+    });
+
+    await batch.commit();
+    return { success: true, error: null };
+  } catch (error) {
+    return { success: false, error: handleError(error, 'batchUpdateProducts') };
+  }
+};
+
+// Pagination helper
+const getPaginatedResults = async <T>(
+  q: Query,
+  lastDoc: QueryDocumentSnapshot | null,
+  pageSize: number
+): Promise<{ data: T[]; lastDoc: QueryDocumentSnapshot | null; total: number }> => {
+  try {
+    let queryRef = q;
+    
+    if (lastDoc) {
+      queryRef = query(q, startAfter(lastDoc));
+    }
+    
+    queryRef = query(queryRef, limit(pageSize));
+    
+    const [snapshot, totalSnapshot] = await Promise.all([
+      getDocs(queryRef),
+      getCountFromServer(q)
+    ]);
+
+    const data = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as T[];
+
+    return {
+      data,
+      lastDoc: snapshot.docs[snapshot.docs.length - 1] || null,
+      total: totalSnapshot.data().count
+    };
+  } catch (error) {
+    throw handleError(error, 'getPaginatedResults');
+  }
+};
+
+// Enhanced CRUD operations with validation and error handling
+const createUser = async (uid: string, userData: Partial<User>) => {
   try {
     const userRef = doc(db, 'users', uid);
     const timestamp = Timestamp.now();
     
-    await setDoc(userRef, {
+    const newUser = {
       ...userData,
       uid,
       role: userData.role || 'customer',
       createdAt: timestamp,
       updatedAt: timestamp
-    });
+    };
+
+    validateData(userSchema, newUser);
+    await setDoc(userRef, newUser);
     
     return { success: true, error: null };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error) {
+    return { success: false, error: handleError(error, 'createUser') };
   }
 };
 
-export const getUserById = async (uid: string) => {
+const getUserById = async (uid: string) => {
   try {
     const userRef = doc(db, 'users', uid);
     const userSnap = await getDoc(userRef);
     
     if (userSnap.exists()) {
-      return { user: userSnap.data() as User, error: null };
-    } else {
-      return { user: null, error: 'User not found' };
+      const userData = userSnap.data() as User;
+      validateData(userSchema, userData);
+      return { user: userData, error: null };
     }
-  } catch (error: any) {
-    return { user: null, error: error.message };
+    
+    return { user: null, error: new FirestoreError('User not found', 'not-found') };
+  } catch (error) {
+    return { user: null, error: handleError(error, 'getUserById') };
   }
 };
 
-export const updateUserProfile = async (uid: string, updates: Partial<User>) => {
+// Transaction example for updating product inventory
+const updateProductInventory = async (
+  productId: string,
+  quantity: number,
+  operation: 'add' | 'subtract'
+) => {
   try {
-    const userRef = doc(db, 'users', uid);
-    await updateDoc(userRef, {
-      ...updates,
-      updatedAt: Timestamp.now()
+    await runTransaction(db, async (transaction) => {
+      const productRef = doc(db, 'products', productId);
+      const productSnap = await transaction.get(productRef);
+      
+      if (!productSnap.exists()) {
+        throw new FirestoreError('Product not found', 'not-found');
+      }
+      
+      const currentInventory = productSnap.data().inventory;
+      const newInventory = operation === 'add' 
+        ? currentInventory + quantity 
+        : currentInventory - quantity;
+      
+      if (newInventory < 0) {
+        throw new FirestoreError('Insufficient inventory', 'invalid-operation');
+      }
+      
+      transaction.update(productRef, { 
+        inventory: newInventory,
+        updatedAt: serverTimestamp()
+      });
     });
     
     return { success: true, error: null };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
-};
-
-export const getUserData = async (userId: string) => {
-  try {
-    const userRef = doc(db, 'users', userId);
-    const userDoc = await getDoc(userRef);
-    
-    if (userDoc.exists()) {
-      return userDoc.data();
-    } else {
-      return null;
-    }
-  } catch (error: any) {
-    console.error('Error getting user data:', error);
-    return { error: error.message };
-  }
-};
-
-// Product operations
-export const createProduct = async (productData: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Promise<{ productId: string | null; error: string | null }> => {
-  try {
-    const productsRef = collection(db, 'products');
-    const now = new Date();
-    
-    const newProduct = {
-      ...productData,
-      createdAt: now,
-      updatedAt: now
-    };
-    
-    const docRef = await addDoc(productsRef, newProduct);
-    return { productId: docRef.id, error: null };
   } catch (error) {
-    console.error('Error creating product:', error);
-    return { productId: null, error: 'Failed to create product' };
+    return { success: false, error: handleError(error, 'updateProductInventory') };
   }
 };
 
-export const getProductById = async (productId: string) => {
-  try {
-    const productRef = doc(db, 'products', productId);
-    const productSnap = await getDoc(productRef);
-    
-    if (productSnap.exists()) {
-      return { product: productSnap.data() as Product, error: null };
-    } else {
-      return { product: null, error: 'Product not found' };
-    }
-  } catch (error: any) {
-    return { product: null, error: error.message };
-  }
-};
-
-export const updateProduct = async (productId: string, productData: Partial<Product>): Promise<{ error: string | null }> => {
-  try {
-    const productRef = doc(db, 'products', productId);
-    
-    const updateData = {
-      ...productData,
-      updatedAt: new Date()
-    };
-    
-    await updateDoc(productRef, updateData);
-    return { error: null };
-  } catch (error) {
-    console.error('Error updating product:', error);
-    return { error: 'Failed to update product' };
-  }
-};
-
-export const deleteProduct = async (productId: string): Promise<{ error: string | null }> => {
-  try {
-    const productRef = doc(db, 'products', productId);
-    await deleteDoc(productRef);
-    return { error: null };
-  } catch (error) {
-    console.error('Error deleting product:', error);
-    return { error: 'Failed to delete product' };
-  }
-};
-
-export const getProducts = async (
+// Enhanced product queries with pagination
+const getProducts = async (
   constraints: QueryConstraint[] = [],
-  limitCount: number = 20
+  pageSize: number = 20,
+  lastDoc: QueryDocumentSnapshot | null = null
 ) => {
   try {
     const productsRef = collection(db, 'products');
-    const q = query(productsRef, ...constraints, limit(limitCount));
-    const querySnapshot = await getDocs(q);
+    const q = query(productsRef, ...constraints);
     
-    const products: Product[] = [];
-    querySnapshot.forEach((doc) => {
-      products.push({
-        id: doc.id,
-        ...doc.data(),
-      } as Product);
-    });
+    const result = await getPaginatedResults<Product>(q, lastDoc, pageSize);
+    const products = result.data.map(doc => ({
+      ...doc,
+      createdAt: doc.createdAt instanceof Timestamp ? doc.createdAt.toDate() : doc.createdAt,
+      updatedAt: doc.updatedAt instanceof Timestamp ? doc.updatedAt.toDate() : doc.updatedAt
+    }));
     
-    return { products, error: null };
-  } catch (error: any) {
-    return { products: [], error: error.message };
-  }
-};
-
-export const getProductsByArtisan = async (artisanId: string): Promise<{ products: Product[]; error: string | null }> => {
-  try {
-    const productsRef = collection(db, 'products');
-    const q = query(productsRef, where('artisanId', '==', artisanId));
-    const querySnapshot = await getDocs(q);
-    
-    const products = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: doc.data().createdAt?.toDate(),
-      updatedAt: doc.data().updatedAt?.toDate()
-    })) as Product[];
-    
-    return { products, error: null };
+    return { 
+      products,
+      lastDoc: result.lastDoc,
+      total: result.total,
+      error: null 
+    };
   } catch (error) {
-    console.error('Error fetching artisan products:', error);
-    return { products: [], error: 'Failed to fetch products' };
+    console.error('Error fetching products:', error);
+    return { 
+      products: [], 
+      lastDoc: null, 
+      total: 0, 
+      error: error instanceof Error ? error.message : 'Failed to fetch products'
+    };
   }
 };
 
 // Order operations
-export const createOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
+const createOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
   try {
     const ordersRef = collection(db, 'orders');
     const timestamp = serverTimestamp();
@@ -302,7 +437,7 @@ export const createOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'u
   }
 };
 
-export const getOrderById = async (orderId: string) => {
+const getOrderById = async (orderId: string) => {
   try {
     const orderRef = doc(db, 'orders', orderId);
     const orderSnap = await getDoc(orderRef);
@@ -317,7 +452,7 @@ export const getOrderById = async (orderId: string) => {
   }
 };
 
-export const updateOrderStatus = async (orderId: string, status: Order['status']) => {
+const updateOrderStatus = async (orderId: string, status: Order['status']) => {
   try {
     const orderRef = doc(db, 'orders', orderId);
     await updateDoc(orderRef, {
@@ -331,7 +466,7 @@ export const updateOrderStatus = async (orderId: string, status: Order['status']
   }
 };
 
-export const getUserOrders = async (userId: string) => {
+const getUserOrders = async (userId: string) => {
   try {
     const ordersRef = collection(db, 'orders');
     const q = query(
@@ -352,7 +487,7 @@ export const getUserOrders = async (userId: string) => {
   }
 };
 
-export const getArtisanOrders = async (artisanId: string) => {
+const getArtisanOrders = async (artisanId: string) => {
   try {
     const ordersRef = collection(db, 'orders');
     // This query structure assumes your order items have artisanId fields
@@ -375,7 +510,7 @@ export const getArtisanOrders = async (artisanId: string) => {
 };
 
 // Review operations
-export const createReview = async (reviewData: Omit<Review, 'id' | 'createdAt' | 'updatedAt'>) => {
+const createReview = async (reviewData: Omit<Review, 'id' | 'createdAt' | 'updatedAt'>) => {
   try {
     const reviewsRef = collection(db, 'reviews');
     const timestamp = serverTimestamp();
@@ -398,7 +533,7 @@ export const createReview = async (reviewData: Omit<Review, 'id' | 'createdAt' |
   }
 };
 
-export const getProductReviews = async (productId: string) => {
+const getProductReviews = async (productId: string) => {
   try {
     const reviewsRef = collection(db, 'reviews');
     const q = query(
@@ -419,7 +554,7 @@ export const getProductReviews = async (productId: string) => {
   }
 };
 
-export const addArtisanResponseToReview = async (reviewId: string, response: string) => {
+const addArtisanResponseToReview = async (reviewId: string, response: string) => {
   try {
     const reviewRef = doc(db, 'reviews', reviewId);
     await updateDoc(reviewRef, {
@@ -465,4 +600,140 @@ const updateProductRating = async (productId: string) => {
   } catch (error: any) {
     return { success: false, error: error.message };
   }
+};
+
+// Product Management
+export const createProduct = async (productData: ProductData) => {
+  try {
+    const productRef = doc(collection(db, 'products'));
+    await setDoc(productRef, {
+      ...productData,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now()
+    });
+    return productRef.id;
+  } catch (error) {
+    throw new FirestoreError('Error creating product', error);
+  }
+};
+
+export const updateProduct = async (productId: string, productData: Partial<ProductData>) => {
+  try {
+    const productRef = doc(db, 'products', productId);
+    await updateDoc(productRef, {
+      ...productData,
+      updatedAt: Timestamp.now()
+    });
+    return { success: true, error: null };
+  } catch (error: any) {
+    return { 
+      success: false, 
+      error: error.message || 'Failed to update product'
+    };
+  }
+};
+
+export const deleteProduct = async (productId: string) => {
+  try {
+    const productRef = doc(db, 'products', productId);
+    await deleteDoc(productRef);
+    return { success: true, error: null };
+  } catch (error) {
+    return { success: false, error: handleError(error, 'deleteProduct') };
+  }
+};
+
+export const getProductById = async (productId: string) => {
+  try {
+    const productRef = doc(db, 'products', productId);
+    const productDoc = await getDoc(productRef);
+    if (!productDoc.exists()) {
+      throw new FirestoreError('Product not found');
+    }
+    const data = productDoc.data();
+    return {
+      id: productDoc.id,
+      ...data
+    } as ProductData;
+  } catch (error) {
+    throw new FirestoreError('Error getting product', error);
+  }
+};
+
+export const getProductsByArtisan = async (artisanId: string) => {
+  try {
+    const productsQuery = query(
+      collection(db, 'products'),
+      where('artisanId', '==', artisanId)
+    );
+    const productsSnapshot = await getDocs(productsQuery);
+    
+    const products = productsSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate(),
+        updatedAt: data.updatedAt?.toDate()
+      } as ProductData;
+    });
+    
+    return { products, error: null };
+  } catch (error: any) {
+    console.error('Error fetching products:', error);
+    return { 
+      products: [], 
+      error: error.message || 'Failed to fetch products'
+    };
+  }
+};
+
+// User Management
+export const getUserData = async (userId: string) => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    if (!userDoc.exists()) {
+      throw new FirestoreError('User not found');
+    }
+    const data = userDoc.data();
+    return {
+      id: userDoc.id,
+      ...data
+    } as UserData;
+  } catch (error) {
+    throw new FirestoreError('Error getting user data', error);
+  }
+};
+
+export const updateUserProfile = async (userId: string, userData: Partial<UserData>) => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, {
+      ...userData,
+      updatedAt: Timestamp.now()
+    });
+  } catch (error) {
+    throw new FirestoreError('Error updating user profile', error);
+  }
+};
+
+// Export all functions at the end of the file
+export {
+  batchCreateProducts,
+  batchUpdateProducts,
+  getPaginatedResults,
+  updateProductInventory,
+  createUser,
+  getUserById,
+  getProducts,
+  createOrder,
+  getOrderById,
+  updateOrderStatus,
+  getUserOrders,
+  getArtisanOrders,
+  createReview,
+  getProductReviews,
+  addArtisanResponseToReview,
+  updateProductRating
 }; 

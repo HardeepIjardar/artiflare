@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { updateProduct, Product } from '../../services/firestore';
+import { updateProduct, ProductData } from '../../services/firestore';
 import { uploadMultipleImages, deleteImage } from '../../services/storage';
 
 interface EditProductFormProps {
-  product: Product;
+  product: ProductData;
   onSuccess: () => void;
   onCancel: () => void;
 }
@@ -24,7 +24,7 @@ const EditProductForm: React.FC<EditProductFormProps> = ({ product, onSuccess, o
     isCustomizable: product.isCustomizable,
     materials: product.materials?.join(', ') || '',
     occasion: product.occasion || '',
-    tags: product.tags.join(', ')
+    tags: (product.tags || []).join(', ')
   });
   // Filter out placeholder images from initial images
   const placeholderPatterns = [
@@ -77,13 +77,13 @@ const EditProductForm: React.FC<EditProductFormProps> = ({ product, onSuccess, o
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentUser) return;
+    if (!currentUser || !product.id) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const productData: Partial<Product> = {
+      const productData: Partial<ProductData> = {
         name: formData.name,
         description: formData.description,
         price: parseFloat(formData.price),
@@ -98,10 +98,10 @@ const EditProductForm: React.FC<EditProductFormProps> = ({ product, onSuccess, o
         images: images
       };
 
-      const { error } = await updateProduct(product.id, productData);
+      const result = await updateProduct(product.id, productData);
       
-      if (error) {
-        setError(error);
+      if (!result.success) {
+        setError(result.error || 'Failed to update product');
       } else {
         onSuccess();
       }

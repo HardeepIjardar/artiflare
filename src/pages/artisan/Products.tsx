@@ -1,30 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { getProductsByArtisan, deleteProduct, Product } from '../../services/firestore';
+import { getProductsByArtisan, deleteProduct, ProductData } from '../../services/firestore';
 import EditProductForm from '../../components/artisan/EditProductForm';
 
 const ArtisanProducts: React.FC = () => {
   const { currentUser } = useAuth();
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<ProductData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingProduct, setEditingProduct] = useState<ProductData | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
 
   useEffect(() => {
     const fetchProducts = async () => {
-      if (!currentUser) return;
+      if (!currentUser) {
+        setError('You must be logged in to view your products');
+        setLoading(false);
+        return;
+      }
 
       try {
+        setLoading(true);
+        setError(null);
         const { products, error } = await getProductsByArtisan(currentUser.uid);
+        
         if (error) {
+          console.error('Error fetching products:', error);
           setError(error);
         } else {
-          setProducts(products);
+          setProducts(products || []);
         }
-      } catch (err) {
-        setError('Failed to fetch products');
+      } catch (err: any) {
+        console.error('Error in fetchProducts:', err);
+        setError(err.message || 'Failed to fetch products');
       } finally {
         setLoading(false);
       }
@@ -34,33 +43,45 @@ const ArtisanProducts: React.FC = () => {
   }, [currentUser]);
 
   const handleDeleteProduct = async (productId: string) => {
+    if (!productId) {
+      console.error('Cannot delete product: No product ID provided');
+      return;
+    }
+    
     if (!window.confirm('Are you sure you want to delete this product?')) return;
 
     try {
-      const { error } = await deleteProduct(productId);
+      const { success, error } = await deleteProduct(productId);
       if (error) {
         setError(error);
-      } else {
+      } else if (success) {
         setProducts(products.filter(p => p.id !== productId));
       }
-    } catch (err) {
-      setError('Failed to delete product');
+    } catch (err: any) {
+      console.error('Error deleting product:', err);
+      setError(err.message || 'Failed to delete product');
     }
   };
 
-  const handleEditProduct = (product: Product) => {
+  const handleEditProduct = (product: ProductData) => {
     setEditingProduct(product);
   };
 
-  const handleEditSuccess = () => {
+  const handleEditSuccess = async () => {
     setEditingProduct(null);
     // Refresh the products list
     if (currentUser) {
-      getProductsByArtisan(currentUser.uid).then(({ products }) => {
-        if (products) {
-          setProducts(products);
+      try {
+        const { products, error } = await getProductsByArtisan(currentUser.uid);
+        if (error) {
+          setError(error);
+        } else {
+          setProducts(products || []);
         }
-      });
+      } catch (err: any) {
+        console.error('Error refreshing products:', err);
+        setError(err.message || 'Failed to refresh products');
+      }
     }
   };
 
@@ -86,7 +107,15 @@ const ArtisanProducts: React.FC = () => {
   if (error) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center text-red-500">{error}</div>
+        <div className="text-center text-red-500">
+          <p className="mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="text-primary hover:text-primary-700 underline"
+          >
+            Try Again
+          </button>
+        </div>
       </div>
     );
   }
@@ -206,12 +235,14 @@ const ArtisanProducts: React.FC = () => {
                     >
                       Edit
                     </button>
-                    <button
-                      onClick={() => handleDeleteProduct(product.id)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      Delete
-                    </button>
+                    {product.id && (
+                      <button
+                        onClick={() => handleDeleteProduct(product.id as string)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Delete
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
