@@ -16,7 +16,12 @@ const ProfilePage: React.FC = () => {
       
       try {
         setIsLoading(true);
-        const data = await getUserData(currentUser.uid);
+        let data = null;
+        try {
+          data = await getUserData(currentUser.uid);
+        } catch (e) {
+          data = null; // or fallback object
+        }
         if (data && !data.error) {
           setUserData(data);
         } else if (data?.error) {

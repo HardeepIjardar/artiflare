@@ -161,9 +161,13 @@ const HomePage: React.FC = () => {
           const uniqueArtisanIds = Array.from(new Set(products.map(p => p.artisanId)));
           const namesMap: { [key: string]: string } = {};
           await Promise.all(uniqueArtisanIds.map(async (artisanId) => {
-            const userData = await getUserData(artisanId);
-            if (userData) {
-              namesMap[artisanId] = userData.companyName || userData.displayName || 'Artisan';
+            try {
+              const userData = await getUserData(artisanId);
+              if (userData) {
+                namesMap[artisanId] = userData.companyName || userData.displayName || 'Artisan';
+              }
+            } catch (err) {
+              namesMap[artisanId] = 'Artisan';
             }
           }));
           setArtisanNames(namesMap);

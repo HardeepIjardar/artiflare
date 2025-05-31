@@ -15,10 +15,14 @@ const CartPage: React.FC = () => {
       const uniqueArtisanIds = Array.from(new Set(cartItems.map(item => item.artisan)));
       const namesMap: { [key: string]: string } = {};
       await Promise.all(uniqueArtisanIds.map(async (artisanId) => {
-        const userData = await getUserData(artisanId);
-        if (userData) {
-          namesMap[artisanId] = userData.companyName || userData.displayName || 'Artisan';
+        let artisanName = 'Artisan';
+        try {
+          const userData = await getUserData(artisanId);
+          artisanName = userData?.companyName || userData?.displayName || 'Artisan';
+        } catch (e) {
+          artisanName = 'Artisan';
         }
+        namesMap[artisanId] = artisanName;
       }));
       setArtisanNames(namesMap);
     };

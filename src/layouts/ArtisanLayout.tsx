@@ -13,7 +13,7 @@ const ArtisanLayout: React.FC = () => {
 
   useEffect(() => {
     if (currentUser) {
-      getUserData(currentUser.uid).then(data => setFirestoreUser(data));
+      getUserData(currentUser.uid).then(data => setFirestoreUser(data)).catch(() => setFirestoreUser(null));
     } else {
       setFirestoreUser(null);
     }
