@@ -28,12 +28,7 @@ const EditProfilePage: React.FC = () => {
       }
 
       try {
-        let userData = null;
-        try {
-          userData = await getUserData(currentUser.uid);
-        } catch (e) {
-          userData = null; // or fallback object
-        }
+        const userData = await getUserData(currentUser.uid);
         if (userData) {
           setForm({
             displayName: userData.displayName || '',

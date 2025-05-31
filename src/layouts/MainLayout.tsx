@@ -25,12 +25,7 @@ const MainLayout: React.FC = () => {
   useEffect(() => {
     const fetchUserRole = async () => {
       if (currentUser) {
-        let userData = null;
-        try {
-          userData = await getUserData(currentUser.uid);
-        } catch (e) {
-          userData = null; // or fallback object
-        }
+        const userData = await getUserData(currentUser.uid);
         if (userData && !userData.error) {
           setUserRole(userData.role);
         }
@@ -44,7 +39,7 @@ const MainLayout: React.FC = () => {
 
   useEffect(() => {
     if (currentUser) {
-      getUserData(currentUser.uid).then(data => setFirestoreUser(data)).catch(() => setFirestoreUser(null));
+      getUserData(currentUser.uid).then(data => setFirestoreUser(data));
     } else {
       setFirestoreUser(null);
     }

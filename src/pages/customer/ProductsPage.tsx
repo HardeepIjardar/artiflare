@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
 import { getProducts, getUserData, Product } from '../../services/firestore';
 import ProductCard from '../../components/ProductCard';
-import { db } from '../../services/firebase';
 
 const ProductsPage: React.FC = () => {
   const { addToCart, updateQuantity: updateCartQuantity, cartItems, removeFromCart } = useCart();
@@ -44,6 +43,7 @@ const ProductsPage: React.FC = () => {
                 namesMap[artisanId] = userData.companyName || userData.displayName || 'Artisan';
               }
             } catch (err) {
+              console.error(`Error fetching artisan data for ${artisanId}:`, err);
               namesMap[artisanId] = 'Artisan';
             }
           }));

@@ -27,7 +27,7 @@ const AdminLayout: React.FC = () => {
 
   useEffect(() => {
     if (currentUser) {
-      getUserData(currentUser.uid).then(data => setFirestoreUser(data)).catch(() => setFirestoreUser(null));
+      getUserData(currentUser.uid).then(data => setFirestoreUser(data));
     } else {
       setFirestoreUser(null);
     }

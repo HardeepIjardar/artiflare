@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
 import { getProductById, getUserData, Product, getProductReviews, createReview, getProducts, Review } from '../../services/firestore';
 import { useAuth } from '../../contexts/AuthContext';
@@ -23,7 +23,6 @@ const ProductDetailPage: React.FC = () => {
   const [reviewRating, setReviewRating] = useState(5);
   const [submittingReview, setSubmittingReview] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
-  const [reviewsToShow, setReviewsToShow] = useState(5);
   const navigate = useNavigate();
   
   useEffect(() => {
@@ -65,7 +64,7 @@ const ProductDetailPage: React.FC = () => {
     fetchProduct();
   }, [id]);
 
-  // Sync showQuantitySelector and quantity with cartItems, but do not re-fetch product
+  // Keep quantity and selector in sync with cartItems, but don't refetch product
   useEffect(() => {
     if (!product) return;
     if (cartItems.some(item => item.id === product.id)) {
@@ -79,6 +78,17 @@ const ProductDetailPage: React.FC = () => {
       setQuantity(1);
     }
   }, [cartItems, product]);
+
+  // Auto-switch product images every 5 seconds
+  useEffect(() => {
+    if (!product || !product.images || product.images.length <= 1) return;
+    let idx = product.images.findIndex(img => img === selectedImage);
+    const interval = setInterval(() => {
+      idx = (idx + 1) % product.images.length;
+      setSelectedImage(product.images[idx]);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [product, selectedImage]);
 
   // Fetch reviews
   useEffect(() => {
@@ -110,18 +120,6 @@ const ProductDetailPage: React.FC = () => {
     fetchRelated();
   }, [product]);
 
-  // Auto-switch product images every 5 seconds
-  useEffect(() => {
-    if (!product || !product.images || product.images.length <= 1) return;
-    let currentIdx = product.images.findIndex(img => img === selectedImage);
-    if (currentIdx === -1) currentIdx = 0;
-    const interval = setInterval(() => {
-      currentIdx = (currentIdx + 1) % product.images.length;
-      setSelectedImage(product.images[currentIdx]);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [product, selectedImage]);
-
   const handleAddToCart = () => {
     if (!product) return;
     
@@ -138,16 +136,14 @@ const ProductDetailPage: React.FC = () => {
     setShowQuantitySelector(true);
   };
 
-  const incrementQuantity = (e?: React.MouseEvent) => {
-    if (e) e.preventDefault();
+  const incrementQuantity = () => {
     if (!product) return;
     const newQuantity = quantity + 1;
     setQuantity(newQuantity);
     updateCartQuantity(product.id, newQuantity);
   };
 
-  const decrementQuantity = (e?: React.MouseEvent) => {
-    if (e) e.preventDefault();
+  const decrementQuantity = () => {
     if (!product) return;
     if (quantity <= 1) {
       removeFromCart(product.id);
@@ -188,9 +184,6 @@ const ProductDetailPage: React.FC = () => {
       setSubmittingReview(false);
     }
   };
-
-  // Check if user has already reviewed
-  const userHasReviewed = currentUser && reviews.some(r => r.userId === currentUser.uid);
 
   if (loading) {
     return (
@@ -281,7 +274,7 @@ const ProductDetailPage: React.FC = () => {
                 <>
                   <div className="flex items-center space-x-2">
                     <button
-                      onClick={e => decrementQuantity(e)}
+                      onClick={decrementQuantity}
                       type="button"
                       className="bg-gray-200 text-dark px-2 py-1 rounded hover:bg-gray-300"
                     >
@@ -289,7 +282,7 @@ const ProductDetailPage: React.FC = () => {
                     </button>
                     <span className="text-dark">{quantity}</span>
                     <button
-                      onClick={e => incrementQuantity(e)}
+                      onClick={incrementQuantity}
                       type="button"
                       className="bg-gray-200 text-dark px-2 py-1 rounded hover:bg-gray-300"
                     >
@@ -337,7 +330,7 @@ const ProductDetailPage: React.FC = () => {
                 <span className="text-yellow-400">{'★'.repeat(Math.round(product.averageRating || 5))}</span>
                 <span className="ml-2 text-dark-500">({product.totalReviews || reviews.length} reviews)</span>
               </div>
-              {reviews.slice(0, reviewsToShow).map((review) => (
+              {reviews.slice(0, 5).map((review) => (
                 <div key={review.id} className="bg-white rounded p-4 border">
                   <div className="flex items-center mb-1">
                     <span className="font-semibold text-dark mr-2">{review.userName}</span>
@@ -347,45 +340,16 @@ const ProductDetailPage: React.FC = () => {
                   <div className="text-xs text-dark-400 mt-1">{review.createdAt?.toDate ? review.createdAt.toDate().toLocaleDateString() : ''}</div>
                 </div>
               ))}
-              {reviewsToShow < reviews.length && (
-                <button
-                  className="mt-2 px-4 py-2 bg-primary text-white rounded hover:bg-primary-700"
-                  onClick={() => setReviewsToShow(r => r + 5)}
-                  type="button"
-                >
-                  Show more
-                </button>
-              )}
             </div>
           )}
-          {/* Review Form or Login Prompt */}
-          {!currentUser ? (
-            <div className="bg-white border rounded p-4 mb-6 text-center text-dark-500">
-              Please <Link to="/login" className="text-primary font-semibold hover:underline">log in</Link> to add a review.
-            </div>
-          ) : userHasReviewed ? (
-            <div className="bg-white border rounded p-4 mb-6 text-center text-dark-500">
-              You have already reviewed this product.
-            </div>
-          ) : (
+          {currentUser ? (
             <form onSubmit={handleReviewSubmit} className="bg-white border rounded p-4 mb-6">
               <h3 className="font-semibold mb-2">Add a Review</h3>
               <div className="flex items-center mb-2">
                 <label className="mr-2">Rating:</label>
-                <div className="flex">
-                  {[1,2,3,4,5].map(r => (
-                    <span
-                      key={r}
-                      className={`cursor-pointer text-2xl ${reviewRating >= r ? 'text-yellow-400' : 'text-gray-300'}`}
-                      onClick={() => setReviewRating(r)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setReviewRating(r); }}
-                    >
-                      ★
-                    </span>
-                  ))}
-                </div>
+                <select value={reviewRating} onChange={e => setReviewRating(Number(e.target.value))} className="border rounded px-2 py-1">
+                  {[5,4,3,2,1].map(r => <option key={r} value={r}>{r} Star{r > 1 ? 's' : ''}</option>)}
+                </select>
               </div>
               <textarea
                 value={reviewText}
@@ -394,15 +358,18 @@ const ProductDetailPage: React.FC = () => {
                 placeholder="Write your review..."
                 rows={3}
                 required
-                minLength={5}
               />
               {reviewError && !reviewError.toLowerCase().includes('firestore') && (
                 <div className="text-red-500 mb-2">{reviewError}</div>
               )}
-              <button type="submit" disabled={submittingReview || reviewText.length < 5} className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-700">
+              <button type="submit" disabled={submittingReview} className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-700">
                 {submittingReview ? 'Submitting...' : 'Submit Review'}
               </button>
             </form>
+          ) : (
+            <div className="bg-white border rounded p-4 mb-6 text-center text-dark-500">
+              Please <RouterLink to="/login" className="text-primary font-semibold hover:underline">login</RouterLink> to add a review
+            </div>
           )}
         </div>
         {/* Related Products Section */}
