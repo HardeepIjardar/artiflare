@@ -172,7 +172,10 @@ const HomePage: React.FC = () => {
                 namesMap[artisanId] = userData.companyName || userData.displayName || 'Artisan';
               }
             } catch (err) {
+<<<<<<< HEAD
               console.error(`Error fetching artisan data for ${artisanId}:`, err);
+=======
+>>>>>>> f1
               namesMap[artisanId] = 'Artisan';
             }
           }));

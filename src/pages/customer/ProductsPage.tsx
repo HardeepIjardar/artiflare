@@ -44,7 +44,6 @@ const ProductsPage: React.FC = () => {
                 namesMap[artisanId] = userData.companyName || userData.displayName || 'Artisan';
               }
             } catch (err) {
-              console.error(`Error fetching artisan data for ${artisanId}:`, err);
               namesMap[artisanId] = 'Artisan';
             }
           }));
