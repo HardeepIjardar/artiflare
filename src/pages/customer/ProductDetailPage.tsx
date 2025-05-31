@@ -44,8 +44,12 @@ const ProductDetailPage: React.FC = () => {
           });
           setSelectedImage(product.images && product.images.length > 0 ? product.images[0] : null);
           // Fetch artisan name
-          const userData = await getUserData(product.artisanId);
-          setArtisanName(userData?.companyName || userData?.displayName || 'Artisan');
+          try {
+            const userData = await getUserData(product.artisanId);
+            setArtisanName(userData?.companyName || userData?.displayName || 'Artisan');
+          } catch (e) {
+            setArtisanName('Artisan');
+          }
           // Check if product is in cart and show quantity selector if it is
           if (cartItems.some(item => item.id === product.id)) {
             setShowQuantitySelector(true);

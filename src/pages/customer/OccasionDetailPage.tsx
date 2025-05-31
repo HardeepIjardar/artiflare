@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
-import { getProducts, Product } from '../../services/firestore';
+import { getProducts, Product, getUserData } from '../../services/firestore';
 
 const OccasionDetailPage: React.FC = () => {
   const { occasion } = useParams<{ occasion: string }>();
@@ -11,6 +11,7 @@ const OccasionDetailPage: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [artisanNames, setArtisanNames] = useState<{ [key: string]: string }>({});
   
   useEffect(() => {
     const fetchProducts = async () => {
@@ -20,6 +21,20 @@ const OccasionDetailPage: React.FC = () => {
           setError(error);
         } else {
           setProducts(products);
+          // Fetch artisan names for all products
+          const uniqueArtisanIds = Array.from(new Set(products.map(p => p.artisanId)));
+          const namesMap: { [key: string]: string } = {};
+          await Promise.all(uniqueArtisanIds.map(async (artisanId) => {
+            try {
+              const userData = await getUserData(artisanId);
+              if (userData) {
+                namesMap[artisanId] = userData.companyName || userData.displayName || 'Artisan';
+              }
+            } catch (err) {
+              namesMap[artisanId] = 'Artisan';
+            }
+          }));
+          setArtisanNames(namesMap);
         }
       } catch (err) {
         setError('Failed to fetch products');
@@ -129,7 +144,7 @@ const OccasionDetailPage: React.FC = () => {
                     />
                   </div>
                   <h3 className="font-bold text-dark">{product.name}</h3>
-                  <p className="text-dark-500 text-sm mt-1">by {product.artisanId}</p>
+                  <p className="text-dark-500 text-sm mt-1">by {artisanNames[product.artisanId] || 'Artisan'}</p>
                 </Link>
                 <div className="flex justify-between items-center mt-4">
                   <span className="text-primary font-bold">${product.price.toFixed(2)}</span>
