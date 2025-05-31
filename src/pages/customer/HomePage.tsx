@@ -152,21 +152,32 @@ const HomePage: React.FC = () => {
       try {
         const { products, error } = await getProducts();
         if (error) {
+          console.error('Error fetching products:', error);
           setError(error);
+        } else if (!products || products.length === 0) {
+          console.log('No products found');
+          setProducts([]);
         } else {
+          console.log('Products fetched successfully:', products.length);
           setProducts(products);
           // Fetch artisan names
           const uniqueArtisanIds = Array.from(new Set(products.map(p => p.artisanId)));
           const namesMap: { [key: string]: string } = {};
           await Promise.all(uniqueArtisanIds.map(async (artisanId) => {
-            const userData = await getUserData(artisanId);
-            if (userData) {
-              namesMap[artisanId] = userData.companyName || userData.displayName || 'Artisan';
+            try {
+              const userData = await getUserData(artisanId);
+              if (userData) {
+                namesMap[artisanId] = userData.companyName || userData.displayName || 'Artisan';
+              }
+            } catch (err) {
+              console.error(`Error fetching artisan data for ${artisanId}:`, err);
+              namesMap[artisanId] = 'Artisan';
             }
           }));
           setArtisanNames(namesMap);
         }
       } catch (err) {
+        console.error('Failed to fetch products:', err);
         setError('Failed to fetch products');
       } finally {
         setLoading(false);

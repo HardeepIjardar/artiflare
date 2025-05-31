@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
 import { getProducts, getUserData, Product } from '../../services/firestore';
 import ProductCard from '../../components/ProductCard';
+import { db } from '../../services/firebase';
 
 const ProductsPage: React.FC = () => {
   const { addToCart, updateQuantity: updateCartQuantity, cartItems, removeFromCart } = useCart();
@@ -20,6 +21,11 @@ const ProductsPage: React.FC = () => {
         const { products, error } = await getProducts();
         if (error) {
           setError(error);
+          // Debug log
+          console.error('ProductsPage error:', error);
+          // Log Firebase project ID
+          // @ts-ignore
+          console.log('Firebase project ID:', db.app.options.projectId);
         } else {
           setProducts(products || []);
           // Fetch artisan names
@@ -40,6 +46,10 @@ const ProductsPage: React.FC = () => {
         }
       } catch (err) {
         setError('Failed to fetch products');
+        // Debug log
+        console.error('ProductsPage catch error:', err);
+        // @ts-ignore
+        console.log('Firebase project ID:', db.app.options.projectId);
       } finally {
         setLoading(false);
       }

@@ -391,13 +391,25 @@ const getProducts = async (
   try {
     const productsRef = collection(db, 'products');
     const q = query(productsRef, ...constraints);
-    
     const result = await getPaginatedResults<Product>(q, lastDoc, pageSize);
+    
+    if (!result.data || result.data.length === 0) {
+      console.log('No products found in database');
+      return { 
+        products: [], 
+        lastDoc: null, 
+        total: 0, 
+        error: null 
+      };
+    }
+
     const products = result.data.map(doc => ({
       ...doc,
       createdAt: doc.createdAt instanceof Timestamp ? doc.createdAt.toDate() : doc.createdAt,
       updatedAt: doc.updatedAt instanceof Timestamp ? doc.updatedAt.toDate() : doc.updatedAt
     }));
+
+    console.log(`Successfully fetched ${products.length} products`);
     
     return { 
       products,
@@ -407,11 +419,12 @@ const getProducts = async (
     };
   } catch (error) {
     console.error('Error fetching products:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     return { 
       products: [], 
       lastDoc: null, 
       total: 0, 
-      error: error instanceof Error ? error.message : 'Failed to fetch products'
+      error: errorMessage
     };
   }
 };
@@ -613,7 +626,8 @@ export const createProduct = async (productData: ProductData) => {
     });
     return productRef.id;
   } catch (error) {
-    throw new FirestoreError('Error creating product', error);
+    const errorMessage = error instanceof Error ? error.message : 'Error creating product';
+    throw new FirestoreError(errorMessage, 'unknown');
   }
 };
 
@@ -648,7 +662,7 @@ export const getProductById = async (productId: string) => {
     const productRef = doc(db, 'products', productId);
     const productDoc = await getDoc(productRef);
     if (!productDoc.exists()) {
-      throw new FirestoreError('Product not found');
+      throw new FirestoreError('Product not found', 'not-found');
     }
     const data = productDoc.data();
     return {
@@ -656,7 +670,8 @@ export const getProductById = async (productId: string) => {
       ...data
     } as ProductData;
   } catch (error) {
-    throw new FirestoreError('Error getting product', error);
+    const errorMessage = error instanceof Error ? error.message : 'Error getting product';
+    throw new FirestoreError(errorMessage, 'unknown');
   }
 };
 
@@ -694,15 +709,16 @@ export const getUserData = async (userId: string) => {
     const userRef = doc(db, 'users', userId);
     const userDoc = await getDoc(userRef);
     if (!userDoc.exists()) {
-      throw new FirestoreError('User not found');
+      throw new FirestoreError('User not found', 'not-found');
     }
-    const data = userDoc.data();
+    const data = userDoc.data() as UserData;
     return {
-      id: userDoc.id,
-      ...data
-    } as UserData;
+      ...data,
+      uid: userDoc.id
+    };
   } catch (error) {
-    throw new FirestoreError('Error getting user data', error);
+    const errorMessage = error instanceof Error ? error.message : 'Error getting user data';
+    throw new FirestoreError(errorMessage, 'unknown');
   }
 };
 
@@ -714,7 +730,8 @@ export const updateUserProfile = async (userId: string, userData: Partial<UserDa
       updatedAt: Timestamp.now()
     });
   } catch (error) {
-    throw new FirestoreError('Error updating user profile', error);
+    const errorMessage = error instanceof Error ? error.message : 'Error updating user profile';
+    throw new FirestoreError(errorMessage, 'unknown');
   }
 };
 
