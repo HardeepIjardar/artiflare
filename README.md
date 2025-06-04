@@ -57,6 +57,7 @@ Custom branded color palette:
 
 - Node.js (v14.0.0 or higher)
 - npm (v7.0.0 or higher) or yarn (v1.22.0 or higher)
+- Firebase account with a project set up
 
 ### Installation
 
@@ -75,18 +76,31 @@ Custom branded color palette:
    yarn install
    ```
 
-3. Create a `.env` file in the root directory with the following variables:
+3. Set up Firebase:
+   - Create a new Firebase project at [Firebase Console](https://console.firebase.google.com)
+   - Enable Authentication, Firestore Database, and Storage
+   - Set up Firestore security rules (see `firestore.rules` in the project)
+   - Get your Firebase configuration from Project Settings
+
+4. Create a `.env` file in the root directory with the following variables:
    ```
-   REACT_APP_FIREBASE_API_KEY=[YOUR_FIREBASE_API_KEY]
-   REACT_APP_FIREBASE_AUTH_DOMAIN=[YOUR_FIREBASE_AUTH_DOMAIN]
-   REACT_APP_FIREBASE_PROJECT_ID=[YOUR_FIREBASE_PROJECT_ID]
-   REACT_APP_FIREBASE_STORAGE_BUCKET=[YOUR_FIREBASE_STORAGE_BUCKET]
-   REACT_APP_FIREBASE_MESSAGING_SENDER_ID=[YOUR_FIREBASE_MESSAGING_SENDER_ID]
-   REACT_APP_FIREBASE_APP_ID=[YOUR_FIREBASE_APP_ID]
-   REACT_APP_STRIPE_PUBLIC_KEY=[YOUR_STRIPE_PUBLIC_KEY]
+   REACT_APP_FIREBASE_API_KEY=your_api_key
+   REACT_APP_FIREBASE_AUTH_DOMAIN=your_auth_domain
+   REACT_APP_FIREBASE_PROJECT_ID=your_project_id
+   REACT_APP_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+   REACT_APP_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+   REACT_APP_FIREBASE_APP_ID=your_app_id
+   REACT_APP_FIREBASE_MEASUREMENT_ID=your_measurement_id
+   REACT_APP_STRIPE_PUBLIC_KEY=your_stripe_public_key
    ```
 
-4. Start the development server
+5. Initialize Firestore:
+   ```bash
+   npm run setup
+   ```
+   This will create the necessary collections and indexes in your Firestore database.
+
+6. Start the development server
    ```bash
    npm start
    ```
@@ -95,7 +109,7 @@ Custom branded color palette:
    yarn start
    ```
 
-5. Open [http://localhost:3000](http://localhost:3000) to view the application in your browser
+7. Open [http://localhost:3000](http://localhost:3000) to view the application in your browser
 
 ## 📁 Project Structure
 
@@ -122,9 +136,37 @@ src/
 │       ├── CartPage.tsx         # Shopping cart
 │       └── ...
 ├── services/     # API and third-party service integrations
+│   ├── firebase.ts    # Firebase configuration
+│   ├── firestore.ts   # Firestore operations
+│   └── ...
 ├── utils/        # Utility functions and helpers
 └── App.tsx       # Main application component
 ```
+
+## 🔥 Firebase Configuration
+
+### Authentication
+- Email/Password authentication
+- Google Sign-in
+- Facebook Sign-in
+- Phone number authentication
+
+### Firestore Database
+Collections:
+- `users`: User profiles and authentication data
+- `products`: Product listings and details
+- `orders`: Customer orders and tracking
+- `reviews`: Product reviews and ratings
+- `categories`: Product categories and subcategories
+- `carts`: Shopping cart data
+- `notifications`: User notifications
+
+### Security Rules
+The project includes comprehensive security rules in `firestore.rules` that:
+- Allow public read access to products
+- Restrict product creation to artisans and admins
+- Allow users to manage their own data
+- Enable admins to manage all data
 
 ## 📱 User Interfaces
 
@@ -149,7 +191,37 @@ src/
 
 ## 🔄 Deployment
 
-The application is deployed using [Vercel](https://vercel.com/) and can be accessed at [link](https://artiflare.hardeepijardar.com/).
+The application is deployed at [artiflare.hardeepijardar.com](https://artiflare.hardeepijardar.com).
+
+### Deployment Steps
+1. Build the application:
+   ```bash
+   npm run build
+   ```
+
+2. Deploy to your hosting provider (e.g., Vercel, Netlify, or Firebase Hosting)
+
+3. Configure environment variables in your hosting platform
+
+4. Set up custom domain (if applicable)
+
+## 🐛 Troubleshooting
+
+### Common Issues
+1. **Firebase Connection Issues**
+   - Verify Firebase configuration in `.env`
+   - Check Firebase project settings
+   - Ensure proper security rules are in place
+
+2. **Product Loading Issues**
+   - Check Firestore database for product data
+   - Verify collection structure matches the schema
+   - Check browser console for error messages
+
+3. **Authentication Problems**
+   - Verify authentication methods are enabled in Firebase Console
+   - Check browser console for authentication errors
+   - Ensure proper error handling in AuthContext
 
 ## 📝 Contributing
 
