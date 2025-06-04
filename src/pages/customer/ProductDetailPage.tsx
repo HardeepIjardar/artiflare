@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate, Link as RouterLink } from 'react-router-d
 import { useCart } from '../../contexts/CartContext';
 import { getProductById, getUserData, Product, getProductReviews, createReview, getProducts, Review } from '../../services/firestore';
 import { useAuth } from '../../contexts/AuthContext';
+import ProductCard from '../../components/ProductCard';
 
 const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -265,8 +266,9 @@ const ProductDetailPage: React.FC = () => {
                   <button
                     onClick={handleAddToCart}
                     type="button"
-                    className="bg-primary text-white px-6 py-2 rounded hover:bg-primary-700"
+                    className="bg-primary text-white px-6 py-2 rounded hover:bg-primary-700 flex items-center justify-center"
                   >
+                    <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.35 2.7A1 1 0 007.5 17h9a1 1 0 00.85-1.53L17 13M7 13V6h13" /></svg>
                     Add to Cart
                   </button>
                 </>
@@ -378,11 +380,17 @@ const ProductDetailPage: React.FC = () => {
             <h2 className="text-2xl font-bold mb-4">Related Products</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
               {relatedProducts.map(rp => (
-                <Link to={`/products/${rp.id}`} key={rp.id} className="bg-white rounded-lg shadow p-4 hover:shadow-lg transition">
-                  <img src={rp.images && rp.images.length > 0 ? rp.images[0] : '/placeholder-product.jpg'} alt={rp.name} className="w-full h-32 object-cover rounded mb-2" />
-                  <div className="font-bold text-dark truncate">{rp.name}</div>
-                  <div className="text-primary font-bold">${rp.price.toFixed(2)}</div>
-                </Link>
+                <ProductCard
+                  key={rp.id}
+                  product={rp}
+                  artisanName={artisanName}
+                  inCart={cartItems.some(item => item.id === rp.id)}
+                  quantity={cartItems.find(item => item.id === rp.id)?.quantity || 1}
+                  showQuantitySelector={false}
+                  onAddToCart={() => handleAddToCart(rp.id)}
+                  onIncrement={() => {}}
+                  onDecrement={() => {}}
+                />
               ))}
             </div>
           </div>

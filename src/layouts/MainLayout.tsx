@@ -233,7 +233,7 @@ const MainLayout: React.FC = () => {
           </div>
         </div>
       </header>
-      <main className="flex-grow pt-20">
+      <main className="flex-grow pt-20 pb-16">
         <Outlet />
       </main>
       <footer className="bg-dark-900 text-white">
