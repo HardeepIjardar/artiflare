@@ -163,7 +163,7 @@ const ProductsPage: React.FC = () => {
               Filter
             </button>
             {filterOpen && (
-              <div ref={filterRef} className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded shadow-lg z-10 p-4">
+              <div ref={filterRef} className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded shadow-lg z-10 p-6">
                 {/* X Close Button */}
                 <button
                   className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-lg font-bold focus:outline-none"

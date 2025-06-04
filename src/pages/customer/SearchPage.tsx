@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
-import { getProducts, Product } from '../../services/firestore';
+import { getProducts, getUserData } from '../../services/firestore';
+import ProductCard from '../../components/ProductCard';
 
 const SearchPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -10,10 +11,16 @@ const SearchPage: React.FC = () => {
   const [showQuantitySelector, setShowQuantitySelector] = useState<Record<string, boolean>>({});
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [products, setProducts] = useState<Product[]>([]);
+  const [artisanNames, setArtisanNames] = useState<{ [key: string]: string }>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [priceRange, setPriceRange] = useState<{ min: number; max: number }>({ min: 0, max: 1000 });
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
+  const filterBtnRef = useRef<HTMLButtonElement>(null);
+  const [sortBy, setSortBy] = useState('');
+  const [selectedOccasion, setSelectedOccasion] = useState('');
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -23,6 +30,20 @@ const SearchPage: React.FC = () => {
           setError(error);
         } else {
           setProducts(products);
+          // Fetch artisan names for all products
+          const uniqueArtisanIds = Array.from(new Set(products.map(p => p.artisanId)));
+          const namesMap: { [key: string]: string } = {};
+          await Promise.all(uniqueArtisanIds.map(async (artisanId) => {
+            try {
+              const userData = await getUserData(artisanId);
+              if (userData) {
+                namesMap[artisanId] = userData.companyName || userData.displayName || 'Artisan';
+              }
+            } catch (err) {
+              namesMap[artisanId] = 'Artisan';
+            }
+          }));
+          setArtisanNames(namesMap);
         }
       } catch (err) {
         setError('Failed to fetch products');
@@ -33,6 +54,23 @@ const SearchPage: React.FC = () => {
 
     fetchProducts();
   }, []);
+
+  // Close filter dropdown on outside click
+  useEffect(() => {
+    if (!filterOpen) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        filterRef.current &&
+        !filterRef.current.contains(event.target as Node) &&
+        filterBtnRef.current &&
+        !filterBtnRef.current.contains(event.target as Node)
+      ) {
+        setFilterOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [filterOpen]);
 
   const handleAddToCartClick = (productId: string) => {
     const product = products.find(p => p.id === productId);
@@ -116,60 +154,127 @@ const SearchPage: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="flex flex-col md:flex-row gap-8">
-        {/* Filters */}
-        <div className="w-full md:w-64 flex-shrink-0">
-          <div className="bg-white rounded-lg shadow p-4">
-            <h2 className="text-lg font-semibold text-dark mb-4">Filters</h2>
-            
-            {/* Categories */}
-            <div className="mb-6">
-              <h3 className="text-sm font-medium text-dark-700 mb-2">Categories</h3>
-              <div className="space-y-2">
-                {Array.from(new Set(products.map(p => p.category))).map(category => (
-                  <label key={category} className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={selectedCategories.includes(category)}
-                      onChange={() => toggleCategory(category)}
-                      className="rounded text-primary focus:ring-primary"
-                    />
-                    <span className="ml-2 text-sm text-dark-600">{category}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            
-            {/* Price Range */}
-            <div>
-              <h3 className="text-sm font-medium text-dark-700 mb-2">Price Range</h3>
-              <div className="space-y-2">
-                <input
-                  type="range"
-                  min="0"
-                  max="1000"
-                  value={priceRange.max}
-                  onChange={(e) => setPriceRange(prev => ({ ...prev, max: Number(e.target.value) }))}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-sm text-dark-500">
-                  <span>${priceRange.min}</span>
-                  <span>${priceRange.max}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Search Results */}
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-dark mb-6">
+      <div className="flex flex-col gap-8">
+        {/* Search Results Header */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
+          <h1 className="text-2xl font-bold text-dark">
             Search Results for "{query}"
             <span className="text-dark-500 text-lg font-normal ml-2">
               ({filteredProducts.length} products)
             </span>
           </h1>
+          <div className="relative">
+            <button
+              ref={filterBtnRef}
+              className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-700 focus:outline-none"
+              onClick={() => setFilterOpen(v => !v)}
+            >
+              Filter
+            </button>
+            {filterOpen && (
+              <div ref={filterRef} className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded shadow-lg z-10 p-6">
+                {/* X Close Button */}
+                <button
+                  className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-lg font-bold focus:outline-none"
+                  onClick={() => setFilterOpen(false)}
+                  aria-label="Close filter"
+                  type="button"
+                >
+                  ×
+                </button>
+                {/* Occasion Filter */}
+                <label htmlFor="occasion" className="block text-sm font-medium text-gray-700 mb-2">
+                  Occasion
+                </label>
+                <select
+                  id="occasion"
+                  value={selectedOccasion}
+                  onChange={e => setSelectedOccasion(e.target.value)}
+                  className="block w-full mb-4 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md"
+                >
+                  <option value="">All Occasions</option>
+                  <option value="wedding">Wedding</option>
+                  <option value="birthday">Birthday</option>
+                  <option value="anniversary">Anniversary</option>
+                  <option value="christmas">Christmas</option>
+                  <option value="valentines">Valentine's Day</option>
+                  <option value="housewarming">Housewarming</option>
+                </select>
+                {/* Category Filter */}
+                <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
+                  Category
+                </label>
+                <select
+                  id="category"
+                  value={selectedCategories[0] || ''}
+                  onChange={e => setSelectedCategories(e.target.value ? [e.target.value] : [])}
+                  className="block w-full mb-4 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md"
+                >
+                  <option value="">All Categories</option>
+                  {Array.from(new Set(products.map(p => p.category))).map(category => (
+                    <option key={category} value={category}>{category}</option>
+                  ))}
+                </select>
+                {/* Price Range Filter */}
+                <div className="flex items-center mb-4 gap-2">
+                  <div className="flex-1">
+                    <label htmlFor="min-price" className="block text-sm font-medium text-gray-700 mb-1">Min Price</label>
+                    <input
+                      id="min-price"
+                      type="number"
+                      min="0"
+                      value={priceRange.min}
+                      onChange={e => setPriceRange(pr => ({ ...pr, min: e.target.value }))}
+                      className="block w-full pl-2 pr-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                    />
+                  </div>
+                  <span className="mx-2 text-gray-500">-</span>
+                  <div className="flex-1">
+                    <label htmlFor="max-price" className="block text-sm font-medium text-gray-700 mb-1">Max Price</label>
+                    <input
+                      id="max-price"
+                      type="number"
+                      min="0"
+                      value={priceRange.max}
+                      onChange={e => setPriceRange(pr => ({ ...pr, max: e.target.value }))}
+                      className="block w-full pl-2 pr-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                    />
+                  </div>
+                </div>
+                {/* Sort By Filter */}
+                <label htmlFor="sort-by" className="block text-sm font-medium text-gray-700 mb-2">
+                  Sort By
+                </label>
+                <select
+                  id="sort-by"
+                  value={sortBy}
+                  onChange={e => setSortBy(e.target.value)}
+                  className="block w-full mb-2 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md"
+                >
+                  <option value="">Default</option>
+                  <option value="price-asc">Price: Low to High</option>
+                  <option value="price-desc">Price: High to Low</option>
+                  <option value="newest">Newest</option>
+                </select>
+                {/* Reset Button */}
+                <button
+                  className="mt-4 w-full bg-gray-200 text-dark py-2 rounded hover:bg-gray-300 transition-colors duration-150"
+                  onClick={() => {
+                    setSelectedOccasion('');
+                    setSelectedCategories([]);
+                    setPriceRange({ min: 0, max: 1000 });
+                    setSortBy('');
+                  }}
+                >
+                  Reset
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
 
+        {/* Search Results */}
+        <div>
           {filteredProducts.length === 0 ? (
             <div className="bg-white rounded-lg shadow p-8 text-center">
               <h2 className="text-xl font-medium text-dark mb-2">No products found</h2>
@@ -182,49 +287,19 @@ const SearchPage: React.FC = () => {
               </Link>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filteredProducts.map(product => (
-                <div key={product.id} className="bg-white rounded-lg shadow p-6">
-                  <Link to={`/products/${product.id}`}>
-                    <div className="h-40 rounded-md mb-4 overflow-hidden">
-                      <img 
-                        src={product.images && product.images.length > 0 ? product.images[0] : '/placeholder-product.jpg'} 
-                        alt={product.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <h3 className="font-bold text-dark">{product.name}</h3>
-                    <p className="text-dark-500 text-sm mt-1">by {product.artisanId}</p>
-                  </Link>
-                  <div className="flex justify-between items-center mt-4">
-                    <span className="text-primary font-bold">${product.price.toFixed(2)}</span>
-                    
-                    {!showQuantitySelector[product.id] ? (
-                      <button
-                        onClick={() => handleAddToCartClick(product.id)}
-                        className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-700"
-                      >
-                        Add to Cart
-                      </button>
-                    ) : (
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => decrementQuantity(product.id)}
-                          className="bg-gray-200 text-dark px-2 py-1 rounded hover:bg-gray-300"
-                        >
-                          -
-                        </button>
-                        <span className="text-dark">{quantities[product.id] || 1}</span>
-                        <button
-                          onClick={() => incrementQuantity(product.id)}
-                          className="bg-gray-200 text-dark px-2 py-1 rounded hover:bg-gray-300"
-                        >
-                          +
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  artisanName={artisanNames[product.artisanId] || 'Artisan'}
+                  inCart={cartItems.some(item => item.id === product.id)}
+                  quantity={quantities[product.id] || 1}
+                  showQuantitySelector={!!showQuantitySelector[product.id]}
+                  onAddToCart={handleAddToCartClick}
+                  onIncrement={incrementQuantity}
+                  onDecrement={decrementQuantity}
+                />
               ))}
             </div>
           )}
