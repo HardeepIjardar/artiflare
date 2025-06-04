@@ -152,24 +152,34 @@ const HomePage: React.FC = () => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
+        console.log('Fetching products...');
         const { products, error } = await getProducts();
         if (error) {
+          console.error('Error from getProducts:', error);
           setError(error);
         } else {
+          console.log('Products fetched successfully:', products.length);
           setProducts(products);
           // Fetch artisan names
           const uniqueArtisanIds = Array.from(new Set(products.map(p => p.artisanId)));
+          console.log('Fetching artisan names for:', uniqueArtisanIds);
           const namesMap: { [key: string]: string } = {};
           await Promise.all(uniqueArtisanIds.map(async (artisanId) => {
-            const userData = await getUserData(artisanId);
-            if (userData) {
-              namesMap[artisanId] = userData.companyName || userData.displayName || 'Artisan';
+            try {
+              const userData = await getUserData(artisanId);
+              if (userData) {
+                namesMap[artisanId] = userData.companyName || userData.displayName || 'Artisan';
+              }
+            } catch (err) {
+              console.error(`Error fetching artisan data for ${artisanId}:`, err);
+              namesMap[artisanId] = 'Artisan';
             }
           }));
           setArtisanNames(namesMap);
         }
       } catch (err) {
-        setError('Failed to fetch products');
+        console.error('Error in fetchProducts:', err);
+        setError(err instanceof Error ? err.message : 'Failed to fetch products');
       } finally {
         setLoading(false);
       }

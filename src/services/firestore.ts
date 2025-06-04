@@ -389,10 +389,17 @@ const getProducts = async (
   lastDoc: QueryDocumentSnapshot | null = null
 ) => {
   try {
+    console.log('Initializing getProducts...');
     const productsRef = collection(db, 'products');
-    const q = query(productsRef, ...constraints);
+    console.log('Created products collection reference');
     
+    const q = query(productsRef, ...constraints);
+    console.log('Created query with constraints:', constraints);
+    
+    console.log('Fetching paginated results...');
     const result = await getPaginatedResults<Product>(q, lastDoc, pageSize);
+    console.log('Got paginated results:', result.data.length, 'products');
+    
     const products = result.data.map(doc => ({
       ...doc,
       createdAt: doc.createdAt instanceof Timestamp ? doc.createdAt.toDate() : doc.createdAt,
@@ -406,7 +413,14 @@ const getProducts = async (
       error: null 
     };
   } catch (error) {
-    console.error('Error fetching products:', error);
+    console.error('Error in getProducts:', error);
+    if (error instanceof Error) {
+      console.error('Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+    }
     return { 
       products: [], 
       lastDoc: null, 
@@ -694,15 +708,21 @@ export const getUserData = async (userId: string) => {
     const userRef = doc(db, 'users', userId);
     const userDoc = await getDoc(userRef);
     if (!userDoc.exists()) {
-      throw new FirestoreError('User not found');
+      throw new FirestoreError('User not found', 'not-found');
     }
     const data = userDoc.data();
     return {
-      id: userDoc.id,
+      uid: userId,
+      displayName: data.displayName || '',
+      email: data.email || '',
+      role: data.role || 'customer',
       ...data
     } as UserData;
   } catch (error) {
-    throw new FirestoreError('Error getting user data', error);
+    if (error instanceof Error) {
+      throw new FirestoreError(error.message, 'error');
+    }
+    throw new FirestoreError('Error getting user data', 'error');
   }
 };
 
